@@ -1,0 +1,56 @@
+# Dam PoC 로컬 인프라
+# 포트: dam_postgres 15432 | dam_redis 16379 | (Phase 2+) dam_api 18000
+# 볼륨(DB): /home/pocachip/dam_data/  — WSL2 ext4 (NTFS는 chmod 미지원으로 PostgreSQL 불가)
+# 볼륨(소스/스캔): /mnt/d/dam_analysis/  — D: NTFS (대용량 원본 데이터)
+#
+# 실행: docker compose up -d
+# 접속: psql -h localhost -p 15432 -U dam -d dam
+
+services:
+  dam_postgres:
+    image: pgvector/pgvector:pg16
+    container_name: dam_postgres
+    environment:
+      POSTGRES_USER: dam
+      POSTGRES_PASSWORD: dam
+      POSTGRES_DB: dam
+      TZ: Asia/Seoul
+    ports:
+      - "15432:5432"
+    volumes:
+      - /home/pocachip/dam_data/pg_data:/var/lib/postgresql/data
+      - ./db/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dam -d dam"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  dam_redis:
+    image: redis:7-alpine
+    container_name: dam_redis
+    ports:
+      - "16379:6379"
+    volumes:
+      - /home/pocachip/dam_data/redis_data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+
+  # Phase 2+ FastAPI 워커 — 파이프라인 구축 후 활성화
+  # dam_api:
+  #   build: .
+  #   container_name: dam_api
+  #   ports:
+  #     - "18000:8000"
+  #   environment:
+  #     DAM_DSN: postgresql://dam:dam@dam_postgres:5432/dam
+  #     DAM_REDIS: redis://dam_redis:6379/0
+  #   depends_on:
+  #     dam_postgres:
+  #       condition: service_healthy
+  #   restart: unless-stopped
+
+networks:
+  default:
+    name: dam_net
