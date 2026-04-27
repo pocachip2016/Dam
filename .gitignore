@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Virtual env
+.venv/
+venv/
+env/
+
+# Local data (DB volumes, thumbnails, PoC assets)
+data/
+dam_data/
+*.smbcredentials
+
+# macOS
+.DS_Store
+._*
+
+# Windows / Office temp
+Thumbs.db
+~$*
+*.lnk
+
+# Logs
+*.log
+
+# IDE
+.idea/
+.vscode/

@@ -1,18 +1,23 @@
 @../CLAUDE.md
 
 ## Purpose
-Dam — (한 줄 설명 추후 보강)
+Dam — 80 TB 디자인 에셋 AI 관리 시스템. 원본 NAS 불변 원칙 하에 메타데이터·썸네일·CLIP 임베딩·검색 API 를 구축한다.
 
 ## Stack
-(기술 스택 한 줄로 추후 보강)
+Python 3.12 / FastAPI + uvicorn / PostgreSQL 16 + pgvector / Redis 7 / Docker Compose / WSL2
 
 ## Active Work
-- Branch: main
-- 최근: init 커밋 (2일 전). 초기 구조 잡는 단계.
+- Branch: `feature/server-migration`
+- Phase 2 완료 (이전 PC). 새 PC (RTX 4060) 로 이관 진행 중.
+- 서버이관 완료 (2026-04-27): feature/server-migration → main 머지 예정
+- poc_sample: `D:\Work\dam_poc_sample` (161k 파일/58 GB) → DB realm=poc_sample 161,030 + 썸네일 160,036
 
 ## Where to look
 - 상세 TODO: `@TODO.md`
 - 기획: `@docs/PRD.md`
 - 아키텍처: `@docs/ARCHITECTURE.md`
 - 의사결정: `@docs/ADR.md`
-- 진행 중 plan: `@plans/` (task slug 디렉토리 참조)
+- 이관 현황: `@docs/migration-status.md`
+- 스캔 분석: `@docs/scan-analysis-1.md`, `@docs/scan-analysis-2.md`, `@docs/scan-analysis-3.md`
+- 초기 기획 검토: `@docs/initial-review.md`
+- 진행 중 plan: `@plans/dev-server-migration/index.json`

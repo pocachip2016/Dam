@@ -1,21 +1,56 @@
 # 🔖 재개 포인트 (Resume Point)
 
-> 최종 업데이트: 2026-04-24
-> **Phase 2 파이프라인 완료.** DB 적재 + 썸네일 생성 + 검색 API 모두 검증 완료.
+> 최종 업데이트: 2026-04-27
+> **서버 이관 Phase 2 재구축 완료** (RTX 4060 PC, feature/server-migration).
+> Steps 1.1–1.7 모두 PASS. 다음: Step 1.8 wrap (커밋·GitHub 이슈·이관 보고).
+
+---
+
+## 이관 후 검증 결과 (2026-04-27)
+
+| 항목 | 값 |
+|---|---|
+| 환경 | RTX 4060 PC / WSL2 / Ubuntu 22.04 |
+| poc_sample 위치 | `D:\Work\dam_poc_sample` (= `/mnt/d/Work/dam_poc_sample`) |
+| 원본 | `\\designfs.ktalpha.com\DESIGNFS\디자인파트\11.NEXT_UI_2022_10월오픈` |
+| 복사 (rsync) | 161,096 파일 / 58.01 GB / PSD·PSB·zip·노이즈 제외 |
+| DB 적재 | 161,030 자산 / realm=poc_sample / 7.7분 |
+| 썸네일 | 160,036개 / 3.9 GB / 16분 (WORKERS=4) |
+| `/stats` | 200 OK — files=161,030, thumbs=160,036, embedded=0 |
+| `/search?q=NEXT&realm=poc_sample` | 200 OK — total=21,292 hits |
+| `/asset/<id>` | 200 OK — JSON 정상, 한글 경로 UTF-8 |
+| `/thumb/<id>` | 200 image/jpeg ✅ |
+
+### API 기동 명령 (새 세션 시)
+```bash
+cd /home/ktalpha/Work/Dam
+docker compose up -d
+PYTHONPATH=/home/ktalpha/Work/Dam DAM_DSN=postgresql://dam:dam@localhost:15432/dam \
+  .venv/bin/uvicorn api.search:app --host 127.0.0.1 --port 18000
+# http://localhost:18000/stats
+# http://localhost:18000/docs
+```
+
+> ⚠ `__main__` 직접 실행(`python api/search.py`) 시 `PYTHONPATH` 필요 — 모듈 경로 이슈. 향후 코드 수정 backlog.
 
 ---
 
 ## 다음 시작 시 첫 번째 할 일
 
-### ① Docker + API 재기동
-
+### ① Step 1.8 wrap — 커밋·푸시·GitHub 이슈 생성
 ```bash
-cd /home/pocachip/work/Dam
-docker compose up -d
-python api/search.py   # 포트 18000
-# http://localhost:18000/docs  — Swagger UI
-# http://localhost:18000/stats — 현황 확인
+# 커밋 후
+git push -u origin feature/server-migration
+gh issue create ...  # step 1–8 이슈 + milestone
 ```
+
+### ② CLIP 임베딩 워커 (별도 task)
+RTX 4060 활용 — `ingest/clip_worker.py` 작성 후 `/similar/<id>` 검증.
+
+### ③ Phase 3 준비 (DESIGNFS1 5TB PoC)
+- DESIGNFS1(`/mnt/designfs1`) 이미 마운트됨
+- hash_worker.py 실행 (SHA-256 중복 탐지)
+- PSD 제외 전체 적재 검토
 
 ### ② CLIP 임베딩 — RTX 4060 기기 이관 후
 
