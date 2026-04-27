@@ -1,6 +1,6 @@
 # Step 7: api-smoke
 
-> GitHub: 미생성 | Milestone: server-migration
+> GitHub: #8 | Milestone: server-migration
 
 ## 읽어야 할 파일
 - `api/search.py` (DB_DSN 환경변수, 엔드포인트 목록)

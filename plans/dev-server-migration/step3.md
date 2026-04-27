@@ -1,6 +1,6 @@
 # Step 3: env-prepare
 
-> GitHub: 미생성 | Milestone: server-migration
+> GitHub: #4 | Milestone: server-migration
 
 ## 읽어야 할 파일
 - `docker-compose.yml` (pocachip 경로 2곳 확인)

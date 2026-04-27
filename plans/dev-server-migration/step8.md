@@ -1,6 +1,6 @@
 # Step 8: wrap
 
-> GitHub: 미생성 | Milestone: server-migration
+> GitHub: #9 | Milestone: server-migration
 
 ## 읽어야 할 파일
 - `TODO.md`, `CLAUDE.md` (현재 상태)

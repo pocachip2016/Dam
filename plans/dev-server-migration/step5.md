@@ -1,6 +1,6 @@
 # Step 5: nas-mount
 
-> GitHub: 미생성 | Milestone: server-migration
+> GitHub: #6 | Milestone: server-migration
 
 ## 결과 요약 (2026-04-27 완료)
 

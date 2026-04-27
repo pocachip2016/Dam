@@ -1,6 +1,6 @@
 # Step 6: data-load
 
-> GitHub: 미생성 | Milestone: server-migration
+> GitHub: #7 | Milestone: server-migration
 
 ## 결과 요약 (2026-04-27 완료)
 

@@ -1,6 +1,6 @@
 # Step 4: infra-up
 
-> GitHub: 미생성 | Milestone: server-migration
+> GitHub: #5 | Milestone: server-migration
 
 ## 읽어야 할 파일
 - `docker-compose.yml` (step 3 수정 후)

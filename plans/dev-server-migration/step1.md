@@ -1,6 +1,6 @@
 # Step 1: branch-setup
 
-> GitHub: 미생성 | Milestone: server-migration
+> GitHub: #2 | Milestone: server-migration
 
 ## 읽어야 할 파일
 - `/home/ktalpha/Work/CLAUDE.md` (워크스페이스 규칙 - branch/plans/verify 컨벤션)

@@ -1,6 +1,6 @@
 # Step 2: harness-align
 
-> GitHub: 미생성 | Milestone: server-migration
+> GitHub: #3 | Milestone: server-migration
 
 ## 읽어야 할 파일
 - `/home/ktalpha/Work/CLAUDE.md` (docs/plans/gitignore 컨벤션)
