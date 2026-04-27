@@ -1,0 +1,14 @@
+{
+  "project": "Dam",
+  "phase": "server-migration",
+  "steps": [
+    {"step": 1, "name": "branch-setup", "status": "completed", "summary": "feature/server-migration 브랜치 + plans/dev-server-migration/ + .claude/verify.sh 스켈레톤 생성 완료", "completed_at": "2026-04-27T10:45:00+09:00"},
+    {"step": 2, "name": "harness-align", "status": "completed", "summary": ".gitignore 추가 + pyc 제거 + 루트 .md 이동(docs//plans/) + docs PRD/ARCHITECTURE/ADR 채우기 + TODO/CLAUDE.md 갱신", "completed_at": "2026-04-27T11:00:00+09:00"},
+    {"step": 3, "name": "env-prepare", "status": "completed", "summary": "dam_data 디렉토리 생성 + docker-compose.yml 경로 수정 + requirements.txt + .venv 설치 완료", "completed_at": "2026-04-27T11:10:00+09:00"},
+    {"step": 4, "name": "infra-up", "status": "completed", "summary": "docker compose up + dam_postgres healthy + 7테이블 + pgvector 확장 + HNSW 인덱스 자동 적용 확인", "completed_at": "2026-04-27T11:20:00+09:00"},
+    {"step": 5, "name": "nas-mount", "status": "completed", "summary": "DESIGNFS+DESIGNFS1 SMB ro 마운트(WORKGROUP) + 11.NEXT_UI에서 PSD/PSB/zip/노이즈 제외 rsync → D:\\Work\\dam_poc_sample 161,096파일/58.01GB 복사 완료", "completed_at": "2026-04-27T18:30:00+09:00"},
+    {"step": 6, "name": "data-load", "status": "completed", "summary": "ingest_local→assets/asset_storage 161,030(realm=poc_sample,58.01GB,7.7분) + thumbnail_worker 160,036개 생성(35 PIL err,994 비이미지,3.9GB,16분,WORKERS=4) + verify.sh 1.6 PASS", "completed_at": "2026-04-27T21:05:00+09:00"},
+    {"step": 7, "name": "api-smoke", "status": "completed", "summary": "/stats·/search·/asset·/thumb 모두 200 + PASS. 기동 시 PYTHONPATH=/home/ktalpha/Work/Dam 필요(api.search 모듈 경로 이슈)", "completed_at": "2026-04-27T21:15:00+09:00"},
+    {"step": 8, "name": "wrap", "status": "completed", "summary": "TODO/CLAUDE.md/migration-status 갱신 + api/search.py 기동 이슈 수정 + 커밋·푸시·GitHub 이슈 생성", "completed_at": "2026-04-27T21:30:00+09:00"}
+  ]
+}
