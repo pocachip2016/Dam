@@ -1,0 +1,13 @@
+{
+  "project": "Dam",
+  "phase": "clip-embedding",
+  "steps": [
+    {"step": "2.1", "name": "env-prepare-gpu", "status": "pending"},
+    {"step": "2.2", "name": "worker-impl", "status": "pending"},
+    {"step": "2.3", "name": "open-embed-full", "status": "pending"},
+    {"step": "2.4", "name": "cn-embed-full", "status": "pending"},
+    {"step": "2.5", "name": "text-search-api", "status": "pending"},
+    {"step": "2.6", "name": "model-compare", "status": "pending"},
+    {"step": "2.7", "name": "wrap", "status": "pending"}
+  ]
+}

@@ -9,8 +9,10 @@ Python 3.12 / FastAPI + uvicorn / PostgreSQL 16 + pgvector / Redis 7 / Docker Co
 ## Active Work
 - Branch: `feature/server-migration`
 - Phase 2 완료 (이전 PC). 새 PC (RTX 4060) 로 이관 진행 중.
-- 서버이관 완료 (2026-04-27): feature/server-migration → main 머지 예정
-- poc_sample: `D:\Work\dam_poc_sample` (161k 파일/58 GB) → DB realm=poc_sample 161,030 + 썸네일 160,036
+- Branch: `feature/clip-embedding`
+- 서버이관 완료 (2026-04-27, server-migration milestone, Issues #2–#9)
+- 진행 중 plan: `plans/dev-clip-embedding/` (Step 2.1 env-prepare-gpu 진행 예정)
+- poc_sample: `D:\Work\dam_poc_sample` (161k 파일/58 GB) → DB realm=poc_sample 161,030 + 썸네일 160,036 (embedded=0)
 
 ## Where to look
 - 상세 TODO: `@TODO.md`
@@ -20,4 +22,5 @@ Python 3.12 / FastAPI + uvicorn / PostgreSQL 16 + pgvector / Redis 7 / Docker Co
 - 이관 현황: `@docs/migration-status.md`
 - 스캔 분석: `@docs/scan-analysis-1.md`, `@docs/scan-analysis-2.md`, `@docs/scan-analysis-3.md`
 - 초기 기획 검토: `@docs/initial-review.md`
-- 진행 중 plan: `@plans/dev-server-migration/index.json`
+- 진행 중 plan: `@plans/dev-clip-embedding/index.json`
+- 이전 task plan: `@plans/dev-server-migration/index.json`

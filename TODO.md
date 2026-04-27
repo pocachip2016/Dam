@@ -3,11 +3,16 @@
 > **세션 재개 프롬프트**: "TODO.md 확인하고 `## Now`부터 이어서 진행해"
 
 ## Now (진행 중, 1~3개)
+- [ ] **CLIP 임베딩** `plans/dev-clip-embedding/` — Step 2.1 env-prepare-gpu 진행 예정
 
-## Next (이번 마일스톤 — Phase 2 재구축)
-- [ ] Step 1.8 wrap — 커밋·푸시·GitHub 이슈·마이그레이션 보고
-- [ ] CLIP 워커 (`ingest/clip_worker.py`) — RTX 4060 활용 (별도 task)
-- [ ] `api/search.py` PYTHONPATH 이슈 수정 — `__main__` 직접 실행 지원
+## Next (CLIP 임베딩 task)
+- [ ] Step 2.1 env-prepare-gpu — torch+cuda + open_clip + cn_clip
+- [ ] Step 2.2 worker-impl — `ingest/clip_worker.py` (open/cn 동시 지원)
+- [ ] Step 2.3 open-embed-full — open_clip ViT-B/32 전량 임베딩
+- [ ] Step 2.4 cn-embed-full — CN-CLIP ViT-B/16 전량 임베딩
+- [ ] Step 2.5 text-search-api — `/search_text` 엔드포인트 추가
+- [ ] Step 2.6 model-compare — `docs/clip-comparison.md` + ADR 결정
+- [ ] Step 2.7 wrap — 커밋·푸시·GitHub 이슈·머지
 
 ## Later (백로그 — Phase 3+)
 - [ ] DESIGNFS1 5TB 확장 PoC (PSD 제외, hash_worker.py 실행)
