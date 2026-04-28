@@ -26,9 +26,8 @@ log = logging.getLogger(__name__)
 try:
     from fastapi import FastAPI, HTTPException, Query
     from fastapi.responses import FileResponse, JSONResponse
-    import uvicorn
 except ImportError:
-    sys.exit('FastAPI 미설치. 실행: pip install fastapi uvicorn')
+    sys.exit('FastAPI 미설치. 실행: pip install fastapi')
 
 try:
     import psycopg
@@ -203,7 +202,3 @@ def stats():
             by_ext = cur.fetchall()
 
     return {'by_realm': by_realm, 'poc_sample_by_ext': by_ext}
-
-
-if __name__ == '__main__':
-    uvicorn.run(app, host='127.0.0.1', port=18000, reload=False)
