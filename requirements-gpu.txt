@@ -1,0 +1,7 @@
+--extra-index-url https://download.pytorch.org/whl/cu124
+torch
+torchvision
+open_clip_torch
+cn_clip
+ftfy
+regex

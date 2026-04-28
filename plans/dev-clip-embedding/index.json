@@ -2,8 +2,8 @@
   "project": "Dam",
   "phase": "clip-embedding",
   "steps": [
-    {"step": "2.1", "name": "env-prepare-gpu", "status": "pending"},
-    {"step": "2.2", "name": "worker-impl", "status": "pending"},
+    {"step": "2.1", "name": "env-prepare-gpu", "status": "completed", "summary": "torch 2.6.0+cu124 + open_clip 3.3.0 + cn_clip GPU 환경 구성 완료", "completed_at": "2026-04-28T09:10:00+09:00"},
+    {"step": "2.2", "name": "worker-impl", "status": "completed", "summary": "clip_worker.py 재작성 — 멱등 fetch+GPU encode+executemany insert, smoke 1000건 PASS", "completed_at": "2026-04-28T23:35:00+09:00"},
     {"step": "2.3", "name": "open-embed-full", "status": "pending"},
     {"step": "2.4", "name": "cn-embed-full", "status": "pending"},
     {"step": "2.5", "name": "text-search-api", "status": "pending"},
