@@ -42,20 +42,6 @@ logger = logging.getLogger(__name__)
 
 
 
-def main():
-
-    conn = psycopg2.connect(DAM_DSN)
-
-    try:
-
-        dispatch_model(conn)
-
-    finally:
-
-        conn.close()
-
-
-
 def dispatch_model(conn):
 
     if MODEL == 'open_clip':
@@ -148,6 +134,14 @@ def write_hashes(conn, results):
 
 
 
-if __name__ == "__main__":
+def main():
 
-    main()
+    conn = psycopg2.connect(DAM_DSN)
+
+    try:
+
+        dispatch_model(conn)
+
+    finally:
+
+        conn.close()
