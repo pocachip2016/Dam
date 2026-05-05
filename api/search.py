@@ -3,21 +3,22 @@
 
 FastAPI 기반. 현재 구현:
   - GET /search?q=<파일명>&ext=.jpg&realm=poc_sample&limit=50  메타/파일명 검색
-  - GET /similar/<asset_id>?limit=20                           CLIP 유사도 검색 (임베딩 있을 때만)
+  - GET /search_text?q=<텍스트>&model=clip-vit-b32&realm=poc_sample&limit=20
+  - GET /similar/<asset_id>?model=clip-vit-b32&limit=20        CLIP 유사도 검색
   - GET /asset/<asset_id>                                      단일 자산 상세
   - GET /thumb/<asset_id>                                      썸네일 이미지 파일 서빙
-  - GET /stats                                                 realm별 집계
-
-설치:
-  pip install fastapi uvicorn psycopg[binary]
+  - GET /stats                                                 realm별 집계 (모델별 embedded 포함)
 
 실행:
-  python api/search.py
-  또는
-  uvicorn api.search:app --host 0.0.0.0 --port 18000 --reload
+  DAM_DSN=... python -m api.search
+  uvicorn api.search:app --host 127.0.0.1 --port 18000 --reload
 """
 
-import os, sys, logging
+import os
+import sys
+import logging
+import threading
+from pathlib import Path
 from typing import Optional
 
 logging.basicConfig(level=logging.INFO)
@@ -25,10 +26,9 @@ log = logging.getLogger(__name__)
 
 try:
     from fastapi import FastAPI, HTTPException, Query
-    from fastapi.responses import FileResponse, JSONResponse
-    import uvicorn
+    from fastapi.responses import FileResponse
 except ImportError:
-    sys.exit('FastAPI 미설치. 실행: pip install fastapi uvicorn')
+    sys.exit('FastAPI 미설치. 실행: pip install fastapi')
 
 try:
     import psycopg
@@ -37,23 +37,89 @@ except ImportError:
     sys.exit('psycopg 미설치. 실행: pip install psycopg[binary]')
 
 DB_DSN = os.environ.get('DAM_DSN', 'postgresql://dam:dam@localhost:15432/dam')
-app    = FastAPI(title='Dam Search API', version='0.2.0')
+MODEL_CACHE_DIR = os.environ.get('MODEL_CACHE_DIR',
+    str(Path.home() / 'Work/Dam/dam_data/models'))
+
+app = FastAPI(title='Dam Search API', version='0.3.0')
+
+# ---------------------------------------------------------------------------
+# 텍스트 인코더 lazy singleton
+# ---------------------------------------------------------------------------
+_model_lock = threading.Lock()
+_models: dict = {}
+
+SUPPORTED_MODELS = {'clip-vit-b32', 'cn-clip-vitb16'}
 
 
+def _load_open_clip():
+    import torch
+    import open_clip
+    os.environ.setdefault('HF_HUB_CACHE', MODEL_CACHE_DIR)
+    os.environ.setdefault('TORCH_HOME', MODEL_CACHE_DIR)
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    model, _, _ = open_clip.create_model_and_transforms(
+        'ViT-B-32', pretrained='laion2b_s34b_b79k')
+    model = model.to(device).eval()
+    tokenizer = open_clip.get_tokenizer('ViT-B-32')
+    log.info(f'open_clip ViT-B/32 로드 완료 (device={device})')
+    return model, tokenizer, device
+
+
+def _load_cn_clip():
+    import torch
+    import cn_clip.clip as clip
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    model, _ = clip.load_from_name('ViT-B-16', device=device,
+                                   download_root=MODEL_CACHE_DIR)
+    model.eval()
+    log.info(f'cn_clip ViT-B/16 로드 완료 (device={device})')
+    return model, None, device
+
+
+def get_model(model_name: str):
+    with _model_lock:
+        if model_name not in _models:
+            if model_name == 'clip-vit-b32':
+                _models[model_name] = _load_open_clip()
+            elif model_name == 'cn-clip-vitb16':
+                _models[model_name] = _load_cn_clip()
+            else:
+                raise ValueError(f'지원하지 않는 모델: {model_name}')
+    return _models[model_name]
+
+
+def encode_text(query: str, model_name: str) -> list:
+    import torch
+    model, tokenizer, device = get_model(model_name)
+    with torch.no_grad():
+        if model_name == 'clip-vit-b32':
+            tokens = tokenizer([query]).to(device)
+            feat = model.encode_text(tokens)
+        else:  # cn-clip-vitb16
+            import cn_clip.clip as clip
+            tokens = clip.tokenize([query]).to(device)
+            feat = model.encode_text(tokens)
+        feat = feat / feat.norm(dim=-1, keepdim=True)
+        return feat.cpu().float().numpy()[0].tolist()
+
+
+# ---------------------------------------------------------------------------
+# DB 연결
+# ---------------------------------------------------------------------------
 def get_conn():
     return psycopg.connect(DB_DSN, row_factory=dict_row)
 
 
 # ---------------------------------------------------------------------------
-# GET /search
+# GET /search  — 파일명/메타 검색
 # ---------------------------------------------------------------------------
 @app.get('/search')
 def search(
-    q:     Optional[str]  = Query(None,  description='파일명 검색 (trigram ILIKE)'),
-    ext:   Optional[str]  = Query(None,  description='확장자 필터, 예: .jpg'),
-    realm: str            = Query('poc_sample'),
-    top:   Optional[str]  = Query(None,  description='top_folder 필터'),
-    limit: int            = Query(50, ge=1, le=500),
+    q:      Optional[str] = Query(None,  description='파일명 검색 (trigram ILIKE)'),
+    ext:    Optional[str] = Query(None,  description='확장자 필터, 예: .jpg'),
+    realm:  str           = Query('poc_sample'),
+    top:    Optional[str] = Query(None,  description='top_folder 필터'),
+    limit:  int           = Query(50, ge=1, le=500),
     offset: int           = Query(0,  ge=0),
 ):
     filters = ['s.realm = %(realm)s']
@@ -84,11 +150,51 @@ def search(
         with conn.cursor() as cur:
             cur.execute(sql, params)
             rows = cur.fetchall()
-            cur.execute(f"SELECT COUNT(*) AS cnt FROM assets a JOIN asset_storage s ON s.asset_id=a.id WHERE {where}",
-                        {k: v for k, v in params.items() if k not in ('limit', 'offset')})
+            cnt_params = {k: v for k, v in params.items() if k not in ('limit', 'offset')}
+            cur.execute(
+                f"SELECT COUNT(*) AS cnt FROM assets a JOIN asset_storage s ON s.asset_id=a.id WHERE {where}",
+                cnt_params)
             total = cur.fetchone()['cnt']
 
     return {'total': total, 'limit': limit, 'offset': offset, 'results': rows}
+
+
+# ---------------------------------------------------------------------------
+# GET /search_text  — 텍스트 → CLIP 임베딩 → 유사 이미지 검색
+# ---------------------------------------------------------------------------
+@app.get('/search_text')
+def search_text(
+    q:     str = Query(..., description='검색 텍스트'),
+    model: str = Query('clip-vit-b32', description='clip-vit-b32 | cn-clip-vitb16'),
+    realm: str = Query('poc_sample'),
+    limit: int = Query(20, ge=1, le=100),
+):
+    if model not in SUPPORTED_MODELS:
+        raise HTTPException(400, f'model은 {SUPPORTED_MODELS} 중 하나여야 합니다')
+
+    try:
+        vec = encode_text(q, model)
+    except Exception as e:
+        raise HTTPException(500, f'텍스트 인코딩 실패: {e}')
+
+    vec_str = '[' + ','.join(map(str, vec)) + ']'
+
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT e.asset_id,
+                       1 - (e.vector <=> %(vec)s::vector) AS similarity,
+                       a.filename, a.primary_ext, a.thumbnail_path, s.physical_path
+                FROM embeddings e
+                JOIN assets a ON a.id = e.asset_id
+                JOIN asset_storage s ON s.asset_id = e.asset_id AND s.realm = %(realm)s
+                WHERE e.model_name = %(model)s
+                ORDER BY e.vector <=> %(vec)s::vector
+                LIMIT %(limit)s
+            """, {'vec': vec_str, 'model': model, 'realm': realm, 'limit': limit})
+            results = cur.fetchall()
+
+    return {'query': q, 'model': model, 'results': results}
 
 
 # ---------------------------------------------------------------------------
@@ -124,19 +230,28 @@ def get_asset(asset_id: int):
 
 
 # ---------------------------------------------------------------------------
-# GET /similar/<id>  — CLIP 유사도 (임베딩 필요)
+# GET /similar/<id>  — CLIP 유사도 검색
 # ---------------------------------------------------------------------------
 @app.get('/similar/{asset_id}')
-def similar(asset_id: int, limit: int = Query(20, ge=1, le=100), realm: str = 'poc_sample'):
+def similar(
+    asset_id: int,
+    model: str = Query('clip-vit-b32', description='clip-vit-b32 | cn-clip-vitb16'),
+    limit: int = Query(20, ge=1, le=100),
+    realm: str = Query('poc_sample'),
+):
+    if model not in SUPPORTED_MODELS:
+        raise HTTPException(400, f'model은 {SUPPORTED_MODELS} 중 하나여야 합니다')
+
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute("""
                 SELECT vector FROM embeddings
-                WHERE asset_id = %s AND model_name = 'clip-vit-b32'
-            """, (asset_id,))
+                WHERE asset_id = %s AND model_name = %s
+            """, (asset_id, model))
             row = cur.fetchone()
             if not row:
-                raise HTTPException(404, f'asset {asset_id}의 임베딩 없음 (clip_worker.py 실행 필요)')
+                raise HTTPException(404,
+                    f'asset {asset_id}의 {model} 임베딩 없음 (clip_worker.py 실행 필요)')
 
             cur.execute("""
                 SELECT e.asset_id,
@@ -145,18 +260,19 @@ def similar(asset_id: int, limit: int = Query(20, ge=1, le=100), realm: str = 'p
                 FROM embeddings e
                 JOIN assets a ON a.id = e.asset_id
                 JOIN asset_storage s ON s.asset_id = e.asset_id AND s.realm = %(realm)s
-                WHERE e.model_name = 'clip-vit-b32'
+                WHERE e.model_name = %(model)s
                   AND e.asset_id <> %(id)s
                 ORDER BY e.vector <=> %(vec)s::vector
                 LIMIT %(limit)s
-            """, {'vec': row['vector'], 'id': asset_id, 'realm': realm, 'limit': limit})
+            """, {'vec': row['vector'], 'model': model, 'id': asset_id,
+                  'realm': realm, 'limit': limit})
             results = cur.fetchall()
 
-    return {'asset_id': asset_id, 'results': results}
+    return {'asset_id': asset_id, 'model': model, 'results': results}
 
 
 # ---------------------------------------------------------------------------
-# GET /thumb/<id>  — 썸네일 파일 서빙
+# GET /thumb/<id>
 # ---------------------------------------------------------------------------
 @app.get('/thumb/{asset_id}')
 def thumb(asset_id: int):
@@ -174,7 +290,7 @@ def thumb(asset_id: int):
 
 
 # ---------------------------------------------------------------------------
-# GET /stats
+# GET /stats  — realm별 집계 + 모델별 embedded 카운트
 # ---------------------------------------------------------------------------
 @app.get('/stats')
 def stats():
@@ -182,16 +298,27 @@ def stats():
         with conn.cursor() as cur:
             cur.execute("""
                 SELECT s.realm,
-                       COUNT(*)                       AS files,
-                       SUM(a.size_bytes)/1e9          AS gb,
-                       COUNT(a.thumbnail_path)        AS thumbs,
-                       COUNT(e.asset_id)              AS embedded
+                       COUNT(*)               AS files,
+                       SUM(a.size_bytes)/1e9  AS gb,
+                       COUNT(a.thumbnail_path) AS thumbs
                 FROM asset_storage s
                 JOIN assets a ON a.id = s.asset_id
-                LEFT JOIN embeddings e ON e.asset_id = s.asset_id AND e.model_name = 'clip-vit-b32'
                 GROUP BY s.realm ORDER BY gb DESC
             """)
-            by_realm = cur.fetchall()
+            realm_rows = {r['realm']: dict(r) for r in cur.fetchall()}
+
+            cur.execute("""
+                SELECT s.realm, e.model_name, COUNT(*) AS cnt
+                FROM embeddings e
+                JOIN asset_storage s ON s.asset_id = e.asset_id
+                GROUP BY s.realm, e.model_name
+            """)
+            for row in cur.fetchall():
+                realm_rows.setdefault(row['realm'], {}).setdefault(
+                    'embedded', {})[row['model_name']] = row['cnt']
+
+            for r in realm_rows.values():
+                r.setdefault('embedded', {})
 
             cur.execute("""
                 SELECT a.primary_ext, COUNT(*), SUM(a.size_bytes)/1e9 AS gb
@@ -202,8 +329,9 @@ def stats():
             """)
             by_ext = cur.fetchall()
 
-    return {'by_realm': by_realm, 'poc_sample_by_ext': by_ext}
+    return {'by_realm': list(realm_rows.values()), 'poc_sample_by_ext': by_ext}
 
 
 if __name__ == '__main__':
-    uvicorn.run(app, host='127.0.0.1', port=18000, reload=False)
+    import uvicorn
+    uvicorn.run(app, host='127.0.0.1', port=18000)

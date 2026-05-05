@@ -95,13 +95,68 @@ case "$STEP" in
     pass "step 1.7 api-smoke"
     ;;
 
+  2.1)
+    "$REPO/.venv/bin/python" -c "import torch; assert torch.cuda.is_available(), 'CUDA not available'" \
+      || fail "torch.cuda.is_available() == False"
+    "$REPO/.venv/bin/python" -c "import open_clip" 2>/dev/null \
+      || fail "open_clip import failed"
+    "$REPO/.venv/bin/python" -c "import cn_clip" 2>/dev/null \
+      || fail "cn_clip import failed"
+    test -d "$REPO/dam_data/models" \
+      || fail "dam_data/models not created"
+    pass "step 2.1 env-prepare-gpu"
+    ;;
+
+  2.2)
+    test -f "$REPO/ingest/clip_worker.py" \
+      || fail "ingest/clip_worker.py missing"
+    PYTHONPATH="$REPO" "$REPO/.venv/bin/python" -c "from ingest.clip_worker import main" 2>/dev/null \
+      || fail "ingest.clip_worker.main not importable"
+    smoke=$(psql_q "SELECT COUNT(*) FROM embeddings WHERE model_name='clip-vit-b32'")
+    [[ "${smoke:-0}" -ge 1000 ]] || fail "smoke embeddings count=$smoke (need ≥1000)"
+    pass "step 2.2 worker-impl"
+    ;;
+
+  2.3)
+    cnt=$(psql_q "SELECT COUNT(*) FROM embeddings WHERE model_name='clip-vit-b32'")
+    [[ "${cnt:-0}" -ge 159500 ]] \
+      || fail "open_clip embeddings count=$cnt (need ≥159500)"
+    pass "step 2.3 open-embed-full"
+    ;;
+
+  2.4)
+    cnt=$(psql_q "SELECT COUNT(*) FROM embeddings WHERE model_name='cn-clip-vitb16'")
+    [[ "${cnt:-0}" -ge 159500 ]] \
+      || fail "cn_clip embeddings count=$cnt (need ≥159500)"
+    open_cnt=$(psql_q "SELECT COUNT(*) FROM embeddings WHERE model_name='clip-vit-b32'")
+    [[ "${open_cnt:-0}" -ge 159500 ]] \
+      || fail "open_clip embeddings missing (count=$open_cnt) — coexistence broken"
+    pass "step 2.4 cn-embed-full"
+    ;;
+
+  2.5)
+    http_open=$(curl -o /dev/null -s -w "%{http_code}" "http://localhost:18000/search_text?q=blue&model=clip-vit-b32&limit=5")
+    [[ "$http_open" == "200" ]] || fail "/search_text (open) returned HTTP $http_open"
+    http_cn=$(curl -o /dev/null -s -w "%{http_code}" --get --data-urlencode "q=강아지" "http://localhost:18000/search_text?model=cn-clip-vitb16&limit=5")
+    [[ "$http_cn" == "200" ]] || fail "/search_text (cn) returned HTTP $http_cn"
+    pass "step 2.5 text-search-api"
+    ;;
+
+  2.6)
+    test -f "$REPO/docs/clip-comparison.md" \
+      || fail "docs/clip-comparison.md missing"
+    grep -q "ADR-" "$REPO/docs/ADR.md" 2>/dev/null \
+      || fail "docs/ADR.md missing CLIP model adoption ADR"
+    pass "step 2.6 model-compare"
+    ;;
+
   --skip)
     reason="${2:-no reason given}"
     echo "SKIP: $reason"
     ;;
 
   "")
-    echo "Usage: $0 <step-id>  (e.g. 1.1, 1.2, ..., 1.7, --skip 'reason')"
+    echo "Usage: $0 <step-id>  (e.g. 1.1–1.7, 2.1–2.6, --skip 'reason')"
     exit 1
     ;;
 

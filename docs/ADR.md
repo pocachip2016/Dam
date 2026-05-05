@@ -55,3 +55,17 @@
 **결정**: 이전 PC (pocachip, GTX 750) 데이터는 복구 불가. 새 PC (ktalpha, RTX 4060, DESIGNFS1 SMB 직결) 에서 NAS 재적재로 Phase 2 환경 재구축.
 
 **이유**: 이전 PC 접근 불가. 새 PC 가 DESIGNFS1 에 직접 연결되어 인벤토리·poc_sample 재적재 가능. RTX 4060 으로 이후 CLIP 워커 실행 가능.
+
+---
+
+### ADR-007: CLIP 모델 운영 전략 (2026-05-05)
+
+**결정**: API 기본 모델은 `clip-vit-b32` (open_clip). `cn-clip-vitb16` 은 `?model=cn-clip-vitb16` 파라미터로 선택 가능하게 유지. 단일 기본 모델 운영.
+
+**이유**: `docs/clip-comparison.md` 실측 결과 요약:
+- 영문 쿼리 시맨틱 이해: open_clip 명확 우위 ("kid character" 등)
+- 한국어 쿼리: 두 모델 모두 그래픽 디자인 도메인에서 유의미한 차이 없음
+- Latency: p50 동일, p95 cn_clip 9ms 낮으나 실용 차이 미미
+- 이미지-이미지 유사도: 두 모델 overlap 12% → 서로 다른 시각 공간, 교체 불가
+
+**보류**: 한국어 정확도 개선은 도메인 특화 fine-tuning 또는 multilingual CLIP 모델 도입으로 Phase 3+에서 재검토. 현재는 open_clip을 기본으로 사용자가 cn_clip을 선택적으로 활용.
