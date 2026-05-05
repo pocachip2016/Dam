@@ -4,10 +4,10 @@
   "steps": [
     {"step": "2.1", "name": "env-prepare-gpu", "status": "completed", "summary": "torch 2.6.0+cu124 + open_clip 3.3.0 + cn_clip GPU 환경 구성 완료", "completed_at": "2026-04-28T09:10:00+09:00"},
     {"step": "2.2", "name": "worker-impl", "status": "completed", "summary": "clip_worker.py 재작성 — 멱등 fetch+GPU encode+executemany insert, smoke 1000건 PASS", "completed_at": "2026-04-28T23:35:00+09:00"},
-    {"step": "2.3", "name": "open-embed-full", "status": "pending"},
-    {"step": "2.4", "name": "cn-embed-full", "status": "pending"},
-    {"step": "2.5", "name": "text-search-api", "status": "pending"},
-    {"step": "2.6", "name": "model-compare", "status": "pending"},
+    {"step": "2.3", "name": "open-embed-full", "status": "completed", "summary": "open_clip ViT-B/32 전체 160,036건 임베딩 완료 err=0 (471s, ~344/s)", "completed_at": "2026-05-05T13:28:43+09:00"},
+    {"step": "2.4", "name": "cn-embed-full", "status": "completed", "summary": "cn_clip ViT-B/16 전체 160,036건 임베딩 완료 err=0 (594s, ~270/s), embeddings 총 320,072행", "completed_at": "2026-05-05T13:49:57+09:00"},
+    {"step": "2.5", "name": "text-search-api", "status": "completed", "summary": "/search_text 엔드포인트 추가 (open_clip+cn_clip lazy singleton), /similar ?model= 파라미터, /stats 모델별 embedded 카운트 분리", "completed_at": "2026-05-05T13:55:00+09:00"},
+    {"step": "2.6", "name": "model-compare", "status": "completed", "summary": "open_clip 영문 우위, cn_clip latency p95 소폭 우위, 한국어 차이 미미 → 기본 clip-vit-b32, cn_clip 선택 유지 (ADR-007)", "completed_at": "2026-05-05T14:10:00+09:00"},
     {"step": "2.7", "name": "wrap", "status": "pending"}
   ]
 }
