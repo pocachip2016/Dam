@@ -137,7 +137,7 @@ case "$STEP" in
   2.5)
     http_open=$(curl -o /dev/null -s -w "%{http_code}" "http://localhost:18000/search_text?q=blue&model=clip-vit-b32&limit=5")
     [[ "$http_open" == "200" ]] || fail "/search_text (open) returned HTTP $http_open"
-    http_cn=$(curl -o /dev/null -s -w "%{http_code}" "http://localhost:18000/search_text?q=강아지&model=cn-clip-vitb16&limit=5")
+    http_cn=$(curl -o /dev/null -s -w "%{http_code}" --get --data-urlencode "q=강아지" "http://localhost:18000/search_text?model=cn-clip-vitb16&limit=5")
     [[ "$http_cn" == "200" ]] || fail "/search_text (cn) returned HTTP $http_cn"
     pass "step 2.5 text-search-api"
     ;;
