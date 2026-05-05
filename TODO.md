@@ -4,8 +4,7 @@
 
 ## Now (진행 중, 1~3개)
 
-## Next (이번 마일스톤 — Phase 2 재구축)
-- [ ] Step 2.7 wrap — 커밋·푸시·GitHub 이슈·main 머지
+## Next (이번 마일스톤 — Phase 3 준비)
 
 ## Later (백로그 — Phase 3+)
 - [ ] DESIGNFS1 5TB 확장 PoC (PSD 제외, hash_worker.py 실행)
@@ -14,6 +13,7 @@
 - [ ] `/etc/fstab` SMB 영속 등록
 
 ## Done (최근 5개만)
+- [x] Web UI — /search_text 브라우저 UI (api/static/index.html) (2026-05-05)
 - [x] Step 2.3 open-embed-full — open_clip 160,036건 err=0 (471s) (2026-05-05)
 - [x] Step 2.4 cn-embed-full — cn_clip 160,036건 err=0 (594s), 총 320k 임베딩 (2026-05-05)
 - [x] Step 2.5 text-search-api — /search_text 추가, /similar ?model=, /stats 모델별 분리 (2026-05-05)

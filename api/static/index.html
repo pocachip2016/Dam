@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dam — 디자인 에셋 검색</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, sans-serif; background: #111; color: #eee; min-height: 100vh; }
+
+  header { padding: 16px 24px; background: #1a1a1a; border-bottom: 1px solid #2a2a2a;
+           display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  header h1 { font-size: 18px; font-weight: 700; color: #fff; letter-spacing: -0.5px; }
+  #stats-badge { font-size: 12px; color: #888; }
+
+  .search-bar { display: flex; gap: 8px; flex: 1; min-width: 280px; }
+  #query { flex: 1; padding: 8px 12px; background: #222; border: 1px solid #333;
+           border-radius: 6px; color: #eee; font-size: 14px; outline: none; }
+  #query:focus { border-color: #555; }
+  select { padding: 8px 10px; background: #222; border: 1px solid #333;
+           border-radius: 6px; color: #eee; font-size: 13px; cursor: pointer; }
+  button { padding: 8px 16px; background: #3b82f6; border: none; border-radius: 6px;
+           color: #fff; font-size: 14px; cursor: pointer; white-space: nowrap; }
+  button:hover { background: #2563eb; }
+  button.secondary { background: #333; }
+  button.secondary:hover { background: #444; }
+
+  #status { padding: 8px 24px; font-size: 12px; color: #666; min-height: 32px;
+            display: flex; align-items: center; }
+
+  .layout { display: flex; height: calc(100vh - 112px); overflow: hidden; }
+
+  #grid-panel { flex: 1; overflow-y: auto; padding: 16px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
+  .card { background: #1a1a1a; border-radius: 8px; overflow: hidden; cursor: pointer;
+          border: 2px solid transparent; transition: border-color .15s; }
+  .card:hover { border-color: #3b82f6; }
+  .card.active { border-color: #f59e0b; }
+  .card img { width: 100%; aspect-ratio: 1; object-fit: cover; background: #222; display: block; }
+  .card .info { padding: 6px 8px; }
+  .card .fname { font-size: 11px; color: #aaa; white-space: nowrap; overflow: hidden;
+                 text-overflow: ellipsis; }
+  .card .score { font-size: 11px; color: #3b82f6; }
+
+  #side-panel { width: 300px; border-left: 1px solid #2a2a2a; background: #161616;
+                overflow-y: auto; display: none; flex-direction: column; }
+  #side-panel.open { display: flex; }
+  #side-header { padding: 12px 16px; border-bottom: 1px solid #2a2a2a; font-size: 13px;
+                 display: flex; justify-content: space-between; align-items: center; }
+  #side-header h2 { font-size: 13px; font-weight: 600; color: #ccc; }
+  #side-img { width: 100%; aspect-ratio: 1; object-fit: cover; background: #222; }
+  #side-meta { padding: 12px 16px; font-size: 12px; color: #888; border-bottom: 1px solid #222; }
+  #side-meta span { display: block; margin-bottom: 4px; }
+  #sim-grid { padding: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .sim-card { cursor: pointer; border-radius: 6px; overflow: hidden;
+              border: 1px solid #2a2a2a; }
+  .sim-card:hover { border-color: #3b82f6; }
+  .sim-card img { width: 100%; aspect-ratio: 1; object-fit: cover; background: #222; }
+  .sim-card .sim-name { font-size: 10px; color: #777; padding: 4px 6px;
+                         white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .empty { padding: 40px; text-align: center; color: #555; font-size: 14px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Dam</h1>
+  <span id="stats-badge">로딩 중…</span>
+  <div class="search-bar">
+    <input id="query" type="text" placeholder="검색어 입력 (한국어·영문)" autofocus>
+    <select id="model">
+      <option value="clip-vit-b32">open_clip</option>
+      <option value="cn-clip-vitb16">cn_clip</option>
+    </select>
+    <button onclick="doSearch()">검색</button>
+    <button class="secondary" onclick="clearSearch()">파일명</button>
+  </div>
+</header>
+
+<div id="status">준비됨</div>
+
+<div class="layout">
+  <div id="grid-panel">
+    <div class="grid" id="grid"></div>
+    <div id="load-more" style="text-align:center;padding:20px;display:none;">
+      <button class="secondary" onclick="loadMore()">더 보기</button>
+    </div>
+  </div>
+  <div id="side-panel">
+    <div id="side-header">
+      <h2 id="side-title">유사 이미지</h2>
+      <button class="secondary" style="padding:4px 10px;font-size:12px" onclick="closeSide()">✕</button>
+    </div>
+    <img id="side-img" src="" alt="">
+    <div id="side-meta"></div>
+    <div id="sim-grid"></div>
+  </div>
+</div>
+
+<script>
+const API = '';
+let currentOffset = 0;
+let currentMode = 'text';
+let currentQuery = '';
+let currentModel = 'clip-vit-b32';
+let activeCard = null;
+
+// ── stats ──
+async function loadStats() {
+  try {
+    const r = await fetch(`${API}/stats`);
+    const d = await r.json();
+    const realm = d.by_realm[0];
+    const emb = realm.embedded || {};
+    document.getElementById('stats-badge').textContent =
+      `${realm.files.toLocaleString()} 파일 · ${realm.gb.toFixed(1)} GB · 임베딩 ${(emb['clip-vit-b32']||0).toLocaleString()}건`;
+  } catch(e) {}
+}
+
+// ── search ──
+async function doSearch() {
+  const q = document.getElementById('query').value.trim();
+  const model = document.getElementById('model').value;
+  if (!q) { doFilenameSearch('', 0, true); return; }
+  currentQuery = q; currentModel = model; currentMode = 'text'; currentOffset = 0;
+  document.getElementById('grid').innerHTML = '';
+  setStatus('검색 중…');
+  await fetchText(q, model, 0);
+}
+
+async function clearSearch() {
+  document.getElementById('query').value = '';
+  currentMode = 'filename'; currentOffset = 0;
+  document.getElementById('grid').innerHTML = '';
+  await doFilenameSearch('', 0, true);
+}
+
+async function fetchText(q, model, offset) {
+  try {
+    const params = new URLSearchParams({ q, model, limit: 40 });
+    const r = await fetch(`${API}/search_text?${params}`);
+    const d = await r.json();
+    renderCards(d.results, offset === 0);
+    setStatus(`"${q}" — ${d.results.length}건`);
+    document.getElementById('load-more').style.display = 'none'; // text search no pagination
+  } catch(e) { setStatus('오류: ' + e.message); }
+}
+
+async function doFilenameSearch(q, offset, reset) {
+  currentMode = 'filename'; currentQuery = q;
+  try {
+    const params = new URLSearchParams({ q: q || '.', realm: 'poc_sample', limit: 80, offset });
+    const r = await fetch(`${API}/search?${params}`);
+    const d = await r.json();
+    renderCards(d.results, reset);
+    setStatus(`전체 ${d.total.toLocaleString()}건`);
+    document.getElementById('load-more').style.display =
+      (offset + 80 < d.total) ? 'block' : 'none';
+    currentOffset = offset + 80;
+  } catch(e) { setStatus('오류: ' + e.message); }
+}
+
+async function loadMore() {
+  await doFilenameSearch(currentQuery, currentOffset, false);
+}
+
+// ── render ──
+function renderCards(items, reset) {
+  const grid = document.getElementById('grid');
+  if (reset) grid.innerHTML = '';
+  if (!items.length && reset) {
+    grid.innerHTML = '<div class="empty">결과 없음</div>'; return;
+  }
+  items.forEach(item => {
+    const id = item.asset_id || item.id;
+    const score = item.similarity != null
+      ? `<div class="score">${(item.similarity * 100).toFixed(1)}%</div>` : '';
+    const div = document.createElement('div');
+    div.className = 'card';
+    div.dataset.id = id;
+    div.innerHTML = `
+      <img src="${API}/thumb/${id}" alt="" loading="lazy" onerror="this.style.opacity=0.2">
+      <div class="info">
+        <div class="fname">${item.filename || ''}</div>
+        ${score}
+      </div>`;
+    div.onclick = () => openSide(id, div);
+    grid.appendChild(div);
+  });
+}
+
+// ── side panel ──
+async function openSide(id, cardEl) {
+  if (activeCard) activeCard.classList.remove('active');
+  activeCard = cardEl;
+  cardEl.classList.add('active');
+
+  const panel = document.getElementById('side-panel');
+  panel.classList.add('open');
+  document.getElementById('side-img').src = `${API}/thumb/${id}`;
+  document.getElementById('side-meta').innerHTML = '<span>로딩 중…</span>';
+  document.getElementById('sim-grid').innerHTML = '';
+
+  try {
+    const [assetR, simR] = await Promise.all([
+      fetch(`${API}/asset/${id}`),
+      fetch(`${API}/similar/${id}?model=${document.getElementById('model').value}&limit=10`)
+    ]);
+    const asset = await assetR.json();
+    const sim = await simR.json();
+
+    document.getElementById('side-title').textContent = asset.filename || `#${id}`;
+    document.getElementById('side-meta').innerHTML = `
+      <span>${asset.primary_ext?.toUpperCase().replace('.','') || ''} · ${fmtBytes(asset.size_bytes)}</span>
+      <span style="word-break:break-all;font-size:11px">${(asset.storage?.[0]?.top_folder) || ''}</span>`;
+
+    const sg = document.getElementById('sim-grid');
+    (sim.results || []).forEach(s => {
+      const d = document.createElement('div');
+      d.className = 'sim-card';
+      d.innerHTML = `<img src="${API}/thumb/${s.asset_id}" alt="" loading="lazy">
+        <div class="sim-name">${s.filename || ''}</div>`;
+      d.onclick = () => openSide(s.asset_id, activeCard);
+      sg.appendChild(d);
+    });
+  } catch(e) {
+    document.getElementById('side-meta').innerHTML = `<span style="color:#f87171">오류: ${e.message}</span>`;
+  }
+}
+
+function closeSide() {
+  document.getElementById('side-panel').classList.remove('open');
+  if (activeCard) { activeCard.classList.remove('active'); activeCard = null; }
+}
+
+// ── utils ──
+function setStatus(msg) { document.getElementById('status').textContent = msg; }
+function fmtBytes(b) {
+  if (!b) return '';
+  if (b > 1e9) return (b/1e9).toFixed(1) + ' GB';
+  if (b > 1e6) return (b/1e6).toFixed(1) + ' MB';
+  return (b/1e3).toFixed(0) + ' KB';
+}
+
+document.getElementById('query').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doSearch();
+});
+
+// init
+loadStats();
+doFilenameSearch('', 0, true);
+</script>
+</body>
+</html>

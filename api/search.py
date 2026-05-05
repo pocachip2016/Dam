@@ -26,7 +26,8 @@ log = logging.getLogger(__name__)
 
 try:
     from fastapi import FastAPI, HTTPException, Query
-    from fastapi.responses import FileResponse
+    from fastapi.responses import FileResponse, RedirectResponse
+    from fastapi.staticfiles import StaticFiles
 except ImportError:
     sys.exit('FastAPI 미설치. 실행: pip install fastapi')
 
@@ -41,6 +42,14 @@ MODEL_CACHE_DIR = os.environ.get('MODEL_CACHE_DIR',
     str(Path.home() / 'Work/Dam/dam_data/models'))
 
 app = FastAPI(title='Dam Search API', version='0.3.0')
+
+_static_dir = Path(__file__).parent / 'static'
+if _static_dir.exists():
+    app.mount('/static', StaticFiles(directory=str(_static_dir)), name='static')
+
+@app.get('/', include_in_schema=False)
+def root():
+    return RedirectResponse('/static/index.html')
 
 # ---------------------------------------------------------------------------
 # 텍스트 인코더 lazy singleton
