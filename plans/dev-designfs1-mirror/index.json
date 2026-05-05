@@ -1,0 +1,14 @@
+{
+  "project": "Dam",
+  "phase": "designfs1-mirror",
+  "steps": [
+    {"step": "3.1", "name": "branch-and-mount", "status": "pending"},
+    {"step": "3.2", "name": "scope-survey", "status": "pending"},
+    {"step": "3.3", "name": "ingest-designfs1", "status": "pending"},
+    {"step": "3.4", "name": "thumbnail-full", "status": "pending"},
+    {"step": "3.5", "name": "embed-full", "status": "pending"},
+    {"step": "3.6", "name": "hash-dedup", "status": "pending"},
+    {"step": "3.7", "name": "scale-validation", "status": "pending"},
+    {"step": "3.8", "name": "wrap", "status": "pending"}
+  ]
+}

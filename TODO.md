@@ -3,14 +3,16 @@
 > **세션 재개 프롬프트**: "TODO.md 확인하고 `## Now`부터 이어서 진행해"
 
 ## Now (진행 중, 1~3개)
+- [ ] Phase 3 Step 3.1: feature/phase3-designfs1 브랜치 생성 + DESIGNFS1 SMB 마운트
 
 ## Next (이번 마일스톤 — Phase 3 준비)
+- [ ] Step 3.2 scope-survey: designfs1_mirror realm DB 적재 범위 확정
+- [ ] Step 3.3 ingest-designfs1: 1.66M 파일 인제스트
 
 ## Later (백로그 — Phase 3+)
-- [ ] DESIGNFS1 5TB 확장 PoC (PSD 제외, hash_worker.py 실행)
+- [ ] DESIGNFS1 5TB 확장 PoC — hash_worker.py 전체 실행 (Phase 3 완료 후)
 - [ ] inotify 기반 증분 인덱싱 (Phase 5)
 - [ ] API 외부 노출 (Caddy + 인증)
-- [ ] `/etc/fstab` SMB 영속 등록
 
 ## Done (최근 5개만)
 - [x] Web UI — /search_text 브라우저 UI (api/static/index.html) (2026-05-05)
