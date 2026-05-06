@@ -1,0 +1,12 @@
+{
+  "project": "Dam",
+  "phase": "ops-readiness",
+  "steps": [
+    {"step": "4.1", "name": "branch-and-scaffold", "status": "pending"},
+    {"step": "4.2", "name": "auth", "status": "pending"},
+    {"step": "4.3", "name": "monitoring", "status": "pending"},
+    {"step": "4.4", "name": "backup", "status": "pending"},
+    {"step": "4.5", "name": "deployment", "status": "pending"},
+    {"step": "4.6", "name": "wrap", "status": "pending"}
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "project": "Dam",
+  "phase": "mvp-features",
+  "steps": [
+    {"step": "3.1", "name": "archive-and-branch", "status": "pending"},
+    {"step": "3.2", "name": "metadata-and-tokens", "status": "pending"},
+    {"step": "3.3", "name": "hash-dedup", "status": "pending"},
+    {"step": "3.4", "name": "search-filters", "status": "pending"},
+    {"step": "3.5", "name": "tags-collections", "status": "pending"},
+    {"step": "3.6", "name": "ocr-pipeline", "status": "pending"},
+    {"step": "3.7", "name": "wrap", "status": "pending"}
+  ]
+}
