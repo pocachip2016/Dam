@@ -59,6 +59,22 @@
   .sim-card .sim-name { font-size: 10px; color: #777; padding: 4px 6px;
                          white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .empty { padding: 40px; text-align: center; color: #555; font-size: 14px; }
+
+  /* ── filter panel ── */
+  #filter-panel { background: #181818; border-bottom: 1px solid #2a2a2a;
+                  padding: 10px 24px; display: none; flex-wrap: wrap; gap: 14px; align-items: flex-end; }
+  #filter-panel.open { display: flex; }
+  .fp-group { display: flex; flex-direction: column; gap: 4px; min-width: 120px; }
+  .fp-group label { font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; }
+  .fp-group input, .fp-group select { padding: 5px 8px; background: #222; border: 1px solid #333;
+      border-radius: 5px; color: #eee; font-size: 12px; outline: none; }
+  .fp-group input:focus { border-color: #555; }
+  .fp-row { display: flex; gap: 6px; }
+  #btn-filter { padding: 6px 12px; background: #333; border: none; border-radius: 6px;
+                color: #aaa; font-size: 13px; cursor: pointer; }
+  #btn-filter.active { background: #1d4ed8; color: #fff; }
+  #btn-filter:hover { background: #444; }
+  #btn-filter.active:hover { background: #1e40af; }
 </style>
 </head>
 <body>
@@ -74,8 +90,46 @@
     </select>
     <button onclick="doSearch()">검색</button>
     <button class="secondary" onclick="clearSearch()">파일명</button>
+    <button id="btn-filter" onclick="toggleFilter()">필터</button>
   </div>
 </header>
+
+<div id="filter-panel">
+  <div class="fp-group">
+    <label>확장자</label>
+    <input id="f-ext" type="text" placeholder="jpg,png,psd" title="쉼표 구분">
+  </div>
+  <div class="fp-group">
+    <label>폴더</label>
+    <input id="f-folder" type="text" placeholder="폴더 토큰">
+  </div>
+  <div class="fp-group">
+    <label>Role</label>
+    <input id="f-role" type="text" placeholder="poster,banner">
+  </div>
+  <div class="fp-group">
+    <label>연도</label>
+    <div class="fp-row">
+      <input id="f-year-from" type="number" placeholder="2022" style="width:70px">
+      <input id="f-year-to"   type="number" placeholder="2025" style="width:70px">
+    </div>
+  </div>
+  <div class="fp-group">
+    <label>크기 (MB)</label>
+    <div class="fp-row">
+      <input id="f-size-min" type="number" placeholder="min" step="0.1" style="width:65px">
+      <input id="f-size-max" type="number" placeholder="max" step="0.1" style="width:65px">
+    </div>
+  </div>
+  <div class="fp-group">
+    <label>수정일</label>
+    <div class="fp-row">
+      <input id="f-mtime-from" type="date" style="width:120px">
+      <input id="f-mtime-to"   type="date" style="width:120px">
+    </div>
+  </div>
+  <button class="secondary" style="align-self:flex-end" onclick="clearFilters()">초기화</button>
+</div>
 
 <div id="status">준비됨</div>
 
@@ -104,6 +158,91 @@ let currentMode = 'text';
 let currentQuery = '';
 let currentModel = 'clip-vit-b32';
 let activeCard = null;
+let _debounceTimer = null;
+
+function getFilterParams() {
+  const p = new URLSearchParams();
+  const ext   = document.getElementById('f-ext').value.trim();
+  const folder= document.getElementById('f-folder').value.trim();
+  const role  = document.getElementById('f-role').value.trim();
+  const yFrom = document.getElementById('f-year-from').value;
+  const yTo   = document.getElementById('f-year-to').value;
+  const sMin  = document.getElementById('f-size-min').value;
+  const sMax  = document.getElementById('f-size-max').value;
+  const mFrom = document.getElementById('f-mtime-from').value;
+  const mTo   = document.getElementById('f-mtime-to').value;
+  if (ext)   p.set('ext', ext);
+  if (folder) p.set('folder', folder);
+  if (role)  p.set('role', role);
+  if (yFrom) p.set('year_from', yFrom);
+  if (yTo)   p.set('year_to', yTo);
+  if (sMin)  p.set('size_min_mb', sMin);
+  if (sMax)  p.set('size_max_mb', sMax);
+  if (mFrom) p.set('mtime_from', mFrom);
+  if (mTo)   p.set('mtime_to', mTo);
+  return p;
+}
+
+function hasActiveFilters() {
+  return getFilterParams().toString() !== '';
+}
+
+function toggleFilter() {
+  const p = document.getElementById('filter-panel');
+  p.classList.toggle('open');
+  document.getElementById('btn-filter').classList.toggle('active', p.classList.contains('open'));
+}
+
+function clearFilters() {
+  ['f-ext','f-folder','f-role','f-year-from','f-year-to',
+   'f-size-min','f-size-max','f-mtime-from','f-mtime-to'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  triggerFilterSearch();
+}
+
+function triggerFilterSearch() {
+  clearTimeout(_debounceTimer);
+  _debounceTimer = setTimeout(() => {
+    currentOffset = 0;
+    document.getElementById('grid').innerHTML = '';
+    const q = document.getElementById('query').value.trim();
+    if (currentMode === 'text' || q) {
+      doSearch();
+    } else {
+      doFilenameSearch('', 0, true);
+    }
+  }, 300);
+}
+
+// Sync URL params
+function syncUrl() {
+  const q = document.getElementById('query').value.trim();
+  const model = document.getElementById('model').value;
+  const fp = getFilterParams();
+  if (q) fp.set('q', q);
+  if (model !== 'clip-vit-b32') fp.set('model', model);
+  history.pushState({}, '', fp.toString() ? `?${fp}` : location.pathname);
+}
+
+function loadFromUrl() {
+  const p = new URLSearchParams(location.search);
+  if (p.get('q')) document.getElementById('query').value = p.get('q');
+  if (p.get('model')) document.getElementById('model').value = p.get('model');
+  if (p.get('ext'))   document.getElementById('f-ext').value = p.get('ext');
+  if (p.get('folder')) document.getElementById('f-folder').value = p.get('folder');
+  if (p.get('role'))  document.getElementById('f-role').value = p.get('role');
+  if (p.get('year_from')) document.getElementById('f-year-from').value = p.get('year_from');
+  if (p.get('year_to'))   document.getElementById('f-year-to').value = p.get('year_to');
+  if (p.get('size_min_mb')) document.getElementById('f-size-min').value = p.get('size_min_mb');
+  if (p.get('size_max_mb')) document.getElementById('f-size-max').value = p.get('size_max_mb');
+  if (p.get('mtime_from')) document.getElementById('f-mtime-from').value = p.get('mtime_from');
+  if (p.get('mtime_to'))   document.getElementById('f-mtime-to').value = p.get('mtime_to');
+  if (hasActiveFilters()) {
+    document.getElementById('filter-panel').classList.add('open');
+    document.getElementById('btn-filter').classList.add('active');
+  }
+}
 
 // ── stats ──
 async function loadStats() {
@@ -121,10 +260,10 @@ async function loadStats() {
 async function doSearch() {
   const q = document.getElementById('query').value.trim();
   const model = document.getElementById('model').value;
-  if (!q) { doFilenameSearch('', 0, true); return; }
   currentQuery = q; currentModel = model; currentMode = 'text'; currentOffset = 0;
   document.getElementById('grid').innerHTML = '';
   setStatus('검색 중…');
+  syncUrl();
   await fetchText(q, model, 0);
 }
 
@@ -138,6 +277,7 @@ async function clearSearch() {
 async function fetchText(q, model, offset) {
   try {
     const params = new URLSearchParams({ q, model, limit: 40 });
+    getFilterParams().forEach((v, k) => params.set(k, v));
     const r = await fetch(`${API}/search_text?${params}`);
     const d = await r.json();
     renderCards(d.results, offset === 0);
@@ -246,9 +386,20 @@ document.getElementById('query').addEventListener('keydown', e => {
   if (e.key === 'Enter') doSearch();
 });
 
+// filter inputs: debounce re-search on change
+['f-ext','f-folder','f-role','f-year-from','f-year-to',
+ 'f-size-min','f-size-max','f-mtime-from','f-mtime-to'].forEach(id => {
+  document.getElementById(id).addEventListener('input', triggerFilterSearch);
+});
+
 // init
+loadFromUrl();
 loadStats();
-doFilenameSearch('', 0, true);
+if (document.getElementById('query').value) {
+  doSearch();
+} else {
+  doFilenameSearch('', 0, true);
+}
 </script>
 </body>
 </html>
