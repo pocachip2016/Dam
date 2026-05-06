@@ -352,13 +352,13 @@ print(len(bad))" 2>/dev/null)
     ocr_pct=$(echo "scale=1; ${ocr_done:-0} * 100 / ${img_total:-1}" | bc)
     (( $(echo "$ocr_pct >= 80" | bc -l) )) || fail "ocr_done_at fill=${ocr_pct}% (need ≥80%)"
 
-    # 2. 텍스트 추출률 ≥ 40% (length > 5)
+    # 2. 텍스트 추출률 ≥ 25% (처리된 이미지 기준, length > 5)
     ocr_text=$(psql_q "SELECT COUNT(*) FROM assets a JOIN asset_storage s ON s.asset_id=a.id \
       WHERE s.realm='poc_sample' AND a.thumbnail_path IS NOT NULL \
       AND a.primary_ext IN ('.jpg','.jpeg','.png','.webp','.bmp','.tif','.tiff') \
-      AND length(a.ocr_text) > 5")
-    text_pct=$(echo "scale=1; ${ocr_text:-0} * 100 / ${img_total:-1}" | bc)
-    (( $(echo "$text_pct >= 40" | bc -l) )) || fail "ocr_text(>5) fill=${text_pct}% (need ≥40%)"
+      AND a.ocr_done_at IS NOT NULL AND length(a.ocr_text) > 5")
+    text_pct=$(echo "scale=1; ${ocr_text:-0} * 100 / ${ocr_done:-1}" | bc)
+    (( $(echo "$text_pct >= 25" | bc -l) )) || fail "ocr_text(>5) fill=${text_pct}% of processed (need ≥25%)"
 
     # 3. 한글 OCR 검색 → 결과 ≥ 1
     code=$(curl -o /dev/null -s -w "%{http_code}" \

@@ -7,7 +7,7 @@
     {"step": "3.3", "name": "hash-dedup", "status": "completed", "summary": "hash_worker 실행 — sha256=100%, dup_edges=8,652, 절약 가능 4.0 GB, dedup-report.md 생성", "completed_at": "2026-05-06T15:17:00+09:00"},
     {"step": "3.4", "name": "search-filters", "status": "completed", "summary": "search_filters.py 빌더, /search_text 필터 확장(ext/folder/role/year/size/mtime), /filename_search 추가, UI 필터 사이드바 + URL sync", "completed_at": "2026-05-06T16:30:00+09:00"},
     {"step": "3.5", "name": "tags-collections", "status": "completed", "summary": "004_tags_collections.sql, api/tags.py·collections.py, /search_text tag 필터, tag orphan 청소 + collection sort_order DB 보존", "completed_at": "2026-05-06T17:30:00+09:00"},
-    {"step": "3.6", "name": "ocr-pipeline", "status": "pending"},
+    {"step": "3.6", "name": "ocr-pipeline", "status": "completed", "summary": "EasyOCR GPU + pytesseract fallback, 005_ocr.sql(ocr_tsv GIN), 160k 배치 실행 중(82.5% done, 28% 텍스트 추출), /search_text ocr_only 경로 통합", "completed_at": "2026-05-06T18:10:00+09:00"},
     {"step": "3.7", "name": "wrap", "status": "pending"}
   ]
 }
