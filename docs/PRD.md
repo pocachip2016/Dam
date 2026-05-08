@@ -22,7 +22,7 @@
 |---|---|---|---|
 | 1 | 메타데이터 DB + 전량 선적재 | 208만 행 / 81 TB | ✅ 완료 |
 | 2 | 로컬 PoC 파이프라인 검증 (썸네일·CLIP·검색API·웹UI) | 161k / 58 GB 샘플 | ✅ 완료 |
-| 3 | MVP 기능 완성 (poc_sample 기반, 로컬 only) | 161k / 58 GB | 대기 |
+| 3 | MVP 기능 완성 (poc_sample 기반, 로컬 only) | 161k / 58 GB | ✅ 완료 |
 | 4 | 운영 준비 (auth · monitoring · backup · deployment) | — | 대기 |
 | 5 | 실데이터 이관 (단방향 push, NAS 직결 X) | ~1.48 TB | 대기 |
 

@@ -31,6 +31,10 @@ try:
 except ImportError:
     sys.exit('FastAPI 미설치. 실행: pip install fastapi')
 
+from api.search_filters import build_filters
+from api.tags import router as tags_router
+from api.collections import router as collections_router
+
 try:
     import psycopg
     from psycopg.rows import dict_row
@@ -41,11 +45,14 @@ DB_DSN = os.environ.get('DAM_DSN', 'postgresql://dam:dam@localhost:15432/dam')
 MODEL_CACHE_DIR = os.environ.get('MODEL_CACHE_DIR',
     str(Path.home() / 'Work/Dam/dam_data/models'))
 
-app = FastAPI(title='Dam Search API', version='0.3.0')
+app = FastAPI(title='Dam Search API', version='0.4.0')
 
 _static_dir = Path(__file__).parent / 'static'
 if _static_dir.exists():
     app.mount('/static', StaticFiles(directory=str(_static_dir)), name='static')
+
+app.include_router(tags_router)
+app.include_router(collections_router)
 
 @app.get('/', include_in_schema=False)
 def root():
@@ -173,37 +180,131 @@ def search(
 # ---------------------------------------------------------------------------
 @app.get('/search_text')
 def search_text(
-    q:     str = Query(..., description='검색 텍스트'),
-    model: str = Query('clip-vit-b32', description='clip-vit-b32 | cn-clip-vitb16'),
+    q:          str            = Query('',   description='검색 텍스트 (비워도 필터만으로 검색 가능)'),
+    model:      str            = Query('clip-vit-b32', description='clip-vit-b32 | cn-clip-vitb16'),
+    realm:      str            = Query('poc_sample'),
+    limit:      int            = Query(20, ge=1, le=100),
+    ext:        Optional[str]  = Query(None, description='확장자 CSV: jpg,png'),
+    folder:     Optional[str]  = Query(None, description='폴더 토큰 (GIN @>)'),
+    role:       Optional[str]  = Query(None, description='role CSV: poster,banner'),
+    year_from:  Optional[int]  = Query(None),
+    year_to:    Optional[int]  = Query(None),
+    size_min_mb: Optional[float] = Query(None),
+    size_max_mb: Optional[float] = Query(None),
+    mtime_from: Optional[str]  = Query(None, description='ISO date'),
+    mtime_to:   Optional[str]  = Query(None, description='ISO date'),
+    tag:        Optional[str]  = Query(None, description='태그 CSV (AND 조건)'),
+    text_search: Optional[str] = Query(None, description='ocr_only | clip_only (기본: 둘 다)'),
+):
+    filter_clauses, filter_params = build_filters({
+        'ext': ext, 'folder': folder, 'role': role,
+        'year_from': year_from, 'year_to': year_to,
+        'size_min_mb': size_min_mb, 'size_max_mb': size_max_mb,
+        'mtime_from': mtime_from, 'mtime_to': mtime_to,
+        'tag': tag,
+    })
+
+    if q and text_search != 'ocr_only':
+        # Vector (CLIP) search path
+        if model not in SUPPORTED_MODELS:
+            raise HTTPException(400, f'model은 {SUPPORTED_MODELS} 중 하나여야 합니다')
+        try:
+            vec = encode_text(q, model)
+        except Exception as e:
+            raise HTTPException(500, f'텍스트 인코딩 실패: {e}')
+        vec_str = '[' + ','.join(map(str, vec)) + ']'
+
+        extra_where = (' AND ' + ' AND '.join(filter_clauses)) if filter_clauses else ''
+        params = {'vec': vec_str, 'model': model, 'realm': realm, 'limit': limit,
+                  **filter_params}
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(f"""
+                    SELECT e.asset_id,
+                           1 - (e.vector <=> %(vec)s::vector) AS similarity,
+                           a.filename, a.primary_ext, a.size_bytes,
+                           a.thumbnail_path, s.physical_path,
+                           a.year_hint, a.role_hint,
+                           ts_headline('simple', coalesce(a.ocr_text,''), plainto_tsquery('simple', %(q_plain)s),
+                             'MaxFragments=1,MaxWords=10') AS ocr_snippet
+                    FROM embeddings e
+                    JOIN assets a ON a.id = e.asset_id
+                    JOIN asset_storage s ON s.asset_id = e.asset_id AND s.realm = %(realm)s
+                    WHERE e.model_name = %(model)s{extra_where}
+                    ORDER BY e.vector <=> %(vec)s::vector
+                    LIMIT %(limit)s
+                """, {**params, 'q_plain': q})
+                results = cur.fetchall()
+
+    elif q and text_search == 'ocr_only':
+        # OCR full-text search only
+        base_clauses = ['s.realm = %(realm)s', "a.ocr_tsv @@ plainto_tsquery('simple', %(q_plain)s)"] + filter_clauses
+        where = ' AND '.join(base_clauses)
+        params = {'realm': realm, 'limit': limit, 'q_plain': q, **filter_params}
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(f"""
+                    SELECT a.id AS asset_id,
+                           ts_rank(a.ocr_tsv, plainto_tsquery('simple', %(q_plain)s)) AS similarity,
+                           a.filename, a.primary_ext, a.size_bytes,
+                           a.thumbnail_path, s.physical_path,
+                           a.year_hint, a.role_hint,
+                           ts_headline('simple', coalesce(a.ocr_text,''), plainto_tsquery('simple', %(q_plain)s),
+                             'MaxFragments=1,MaxWords=10') AS ocr_snippet
+                    FROM assets a
+                    JOIN asset_storage s ON s.asset_id = a.id
+                    WHERE {where}
+                    ORDER BY similarity DESC
+                    LIMIT %(limit)s
+                """, params)
+                results = cur.fetchall()
+    else:
+        # Metadata-only filter path (no vector)
+        base_clauses = ['s.realm = %(realm)s'] + filter_clauses
+        where = ' AND '.join(base_clauses)
+        params = {'realm': realm, 'limit': limit, **filter_params}
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(f"""
+                    SELECT a.id AS asset_id,
+                           NULL::float AS similarity,
+                           a.filename, a.primary_ext, a.size_bytes,
+                           a.thumbnail_path, s.physical_path,
+                           a.year_hint, a.role_hint
+                    FROM assets a
+                    JOIN asset_storage s ON s.asset_id = a.id
+                    WHERE {where}
+                    ORDER BY a.id DESC
+                    LIMIT %(limit)s
+                """, params)
+                results = cur.fetchall()
+
+    return {'query': q, 'model': model, 'results': results}
+
+
+@app.get('/filename_search')
+def filename_search(
+    q:     str = Query(..., description='파일명 토큰 검색'),
     realm: str = Query('poc_sample'),
     limit: int = Query(20, ge=1, le=100),
 ):
-    if model not in SUPPORTED_MODELS:
-        raise HTTPException(400, f'model은 {SUPPORTED_MODELS} 중 하나여야 합니다')
-
-    try:
-        vec = encode_text(q, model)
-    except Exception as e:
-        raise HTTPException(500, f'텍스트 인코딩 실패: {e}')
-
-    vec_str = '[' + ','.join(map(str, vec)) + ']'
-
+    token = q.strip().lower()
+    if not token:
+        return {'query': q, 'results': []}
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT e.asset_id,
-                       1 - (e.vector <=> %(vec)s::vector) AS similarity,
-                       a.filename, a.primary_ext, a.thumbnail_path, s.physical_path
-                FROM embeddings e
-                JOIN assets a ON a.id = e.asset_id
-                JOIN asset_storage s ON s.asset_id = e.asset_id AND s.realm = %(realm)s
-                WHERE e.model_name = %(model)s
-                ORDER BY e.vector <=> %(vec)s::vector
+                SELECT a.id AS asset_id, a.filename, a.primary_ext,
+                       a.size_bytes, a.thumbnail_path, s.physical_path
+                FROM assets a
+                JOIN asset_storage s ON s.asset_id = a.id
+                WHERE s.realm = %(realm)s
+                  AND a.filename_tokens @> %(tok)s
+                ORDER BY a.id DESC
                 LIMIT %(limit)s
-            """, {'vec': vec_str, 'model': model, 'realm': realm, 'limit': limit})
+            """, {'realm': realm, 'tok': [token], 'limit': limit})
             results = cur.fetchall()
-
-    return {'query': q, 'model': model, 'results': results}
+    return {'query': q, 'results': results}
 
 
 # ---------------------------------------------------------------------------
@@ -229,11 +330,19 @@ def get_asset(asset_id: int):
             """, (asset_id,))
             asset['storage'] = cur.fetchall()
 
+            # new normalized tags
             cur.execute("""
-                SELECT namespace, value, source, confidence
-                FROM asset_tags WHERE asset_id = %s
+                SELECT at.tag_id, t.namespace, t.name, at.added_by, at.added_at
+                FROM asset_tags at JOIN tags t ON t.id = at.tag_id
+                WHERE at.asset_id = %s
             """, (asset_id,))
             asset['tags'] = cur.fetchall()
+            # legacy path_inference tags
+            cur.execute("""
+                SELECT namespace, value, source, confidence
+                FROM asset_tags_legacy WHERE asset_id = %s
+            """, (asset_id,))
+            asset['tags_legacy'] = cur.fetchall()
 
     return asset
 
