@@ -21,6 +21,7 @@
 - [ ] inotify 증분 인덱싱 (Phase 5 후)
 
 ## Done (최근 5개만)
+- [x] Step 4.G db-init-guard — entrypoint guard + smoke-test A/B/C + db-recovery.md (2026-05-08)
 - [x] Step 3.7 wrap — Phase 3 docs 갱신, feature/mvp-features → main 머지 (2026-05-08)
 - [x] Step 3.6 ocr-pipeline — EasyOCR GPU, ocr_tsv GIN, 160k 배치, /search_text ocr_only (2026-05-06)
 - [x] Step 3.5 tags-collections — 태그 CRUD + orphan 정리 + collection sort_order (2026-05-06)

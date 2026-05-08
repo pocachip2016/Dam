@@ -387,6 +387,50 @@ print(len(bad))" 2>/dev/null)
     exit 1
     ;;
 
+  4.G.3)
+    test -f "$REPO/docs/db-recovery.md" \
+      || fail "docs/db-recovery.md missing"
+    grep -q "Scenario A" "$REPO/docs/db-recovery.md" \
+      || fail "db-recovery.md missing Scenario A"
+    grep -q "Scenario B" "$REPO/docs/db-recovery.md" \
+      || fail "db-recovery.md missing Scenario B"
+    grep -q "Scenario C" "$REPO/docs/db-recovery.md" \
+      || fail "db-recovery.md missing Scenario C"
+    result=$(docker exec dam_postgres psql -U dam -d dam -tAc "SELECT 1" 2>/dev/null)
+    [ "$result" = "1" ] || fail "DB not responding after smoke-test recovery"
+    tables=$(docker exec dam_postgres psql -U dam -d dam -tAc "SELECT COUNT(*) FROM pg_tables WHERE schemaname='public';" 2>/dev/null)
+    [ "$tables" -ge 10 ] || fail "expected ≥10 tables after restore, got $tables"
+    pass "step 4.G.3 smoke-test"
+    ;;
+
+  4.G.2)
+    docker compose -f "$REPO/docker-compose.yml" config -q \
+      || fail "docker compose config failed"
+    docker exec dam_postgres ls -la /usr/local/bin/dam_init_guard.sh 2>/dev/null | grep -q "dam_init_guard" \
+      || fail "dam_init_guard.sh not found in container"
+    docker exec dam_postgres pg_isready -U dam -d dam 2>/dev/null \
+      || fail "postgres not ready (pg_isready failed)"
+    result=$(docker exec dam_postgres psql -U dam -d dam -tAc "SELECT 1" 2>/dev/null)
+    [ "$result" = "1" ] || fail "DB not responding (SELECT 1 returned: $result)"
+    pass "step 4.G.2 compose-integration"
+    ;;
+
+  4.G.1)
+    test -f "$REPO/scripts/postgres_entrypoint_guard.sh" \
+      || fail "postgres_entrypoint_guard.sh missing"
+    test -x "$REPO/scripts/postgres_entrypoint_guard.sh" \
+      || fail "postgres_entrypoint_guard.sh not executable"
+    bash -n "$REPO/scripts/postgres_entrypoint_guard.sh" \
+      || fail "syntax error in postgres_entrypoint_guard.sh"
+    head -1 "$REPO/scripts/postgres_entrypoint_guard.sh" | grep -q "#!/usr/bin/env bash" \
+      || fail "missing shebang"
+    grep -q "set -euo pipefail" "$REPO/scripts/postgres_entrypoint_guard.sh" \
+      || fail "missing set -euo pipefail"
+    grep -q "DAM_ALLOW_INIT" "$REPO/scripts/postgres_entrypoint_guard.sh" \
+      || fail "DAM_ALLOW_INIT not referenced"
+    pass "step 4.G.1 guard-script"
+    ;;
+
   *)
     fail "unknown step '$STEP'"
     ;;
