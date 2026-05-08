@@ -8,8 +8,8 @@ Python 3.12 / FastAPI + uvicorn / PostgreSQL 16 + pgvector / Redis 7 / Docker Co
 
 ## Active Work
 - Phase 3 (mvp-features) ✅ 완료 (2026-05-08): metadata·dedup·search-filters·tags·OCR 전 완료, main 머지
+- Phase 4 진행 중: db-init-guard ✅ (entrypoint guard + 주간 백업 cron), 다음: auth·monitoring·ops-readiness
 - poc_sample: `D:\Work\dam_poc_sample` (161k 파일/58 GB) → DB realm=poc_sample 161,030 + 썸네일 160,036 + 임베딩 320,072
-- 다음: Phase 4 운영 준비 (auth / monitoring / backup / deployment) → `plans/dev-ops-readiness/`
 
 ## Where to look
 - 상세 TODO: `@TODO.md`

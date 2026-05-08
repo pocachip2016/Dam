@@ -1,0 +1,11 @@
+{
+  "project": "Dam",
+  "phase": "db-init-guard",
+  "description": "dam_postgres 자동 initdb 방지 — pg_data 가 비었을 때 silent reset 차단, 명시적 DAM_ALLOW_INIT=yes 환경변수로만 fresh init 허용. 5/7 데이터 유실(WSL dirty shutdown 추정) 재발 차단이 목표.",
+  "steps": [
+    {"step": "4.G.1", "name": "guard-script", "status": "completed", "summary": "postgres_entrypoint_guard.sh 작성 — PG_VERSION 체크, DAM_ALLOW_INIT 없으면 exit 1", "completed_at": "2026-05-08T16:30:00+09:00"},
+    {"step": "4.G.2", "name": "compose-integration", "status": "completed", "summary": "docker-compose.yml entrypoint 오버라이드 + guard 스크립트 마운트, 컨테이너 재기동 정상 확인", "completed_at": "2026-05-08T16:30:00+09:00"},
+    {"step": "4.G.3", "name": "smoke-test", "status": "completed", "summary": "시나리오 A/B/C 검증 — guard 차단·허용·복원 모두 통과, docs/db-recovery.md 작성", "completed_at": "2026-05-08T16:35:00+09:00"},
+    {"step": "4.G.4", "name": "wrap", "status": "completed", "summary": "TODO/CLAUDE 갱신, feature/db-init-guard → main 머지", "completed_at": "2026-05-08T16:40:00+09:00"}
+  ]
+}
