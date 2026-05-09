@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>자산 매핑 대시보드</title>
+  <style>
+    body { font-family: sans-serif; margin: 24px; background: #f5f5f5; }
+    h1 { font-size: 1.4rem; margin-bottom: 16px; }
+    .cards { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
+    .card { background: #fff; border-radius: 8px; padding: 16px 24px; min-width: 180px; box-shadow: 0 1px 4px #0001; }
+    .card h3 { margin: 0 0 8px; font-size: 0.85rem; color: #666; }
+    .card .val { font-size: 1.8rem; font-weight: 700; color: #1a1a2e; }
+    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px #0001; }
+    th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid #eee; font-size: 0.9rem; }
+    th { background: #f0f0f0; font-weight: 600; }
+    .section { margin-bottom: 28px; }
+    .section h2 { font-size: 1rem; margin-bottom: 8px; color: #333; }
+    .bar-wrap { display: flex; align-items: center; gap: 8px; }
+    .bar { height: 14px; border-radius: 4px; background: #4f8ef7; min-width: 2px; }
+    .err { color: #c00; }
+  </style>
+</head>
+<body>
+  <h1>자산 매핑 대시보드</h1>
+  <div class="cards" id="kpi-cards">
+    <div class="card"><h3>매핑 적중률</h3><div class="val" id="hit-rate">—</div></div>
+    <div class="card"><h3>콘텐츠 자산</h3><div class="val" id="content-total">—</div></div>
+    <div class="card"><h3>매핑 완료</h3><div class="val" id="mapped-total">—</div></div>
+  </div>
+
+  <div class="section">
+    <h2>Class 분포</h2>
+    <table>
+      <thead><tr><th>Class</th><th>Status</th><th>건수</th><th>비중</th></tr></thead>
+      <tbody id="class-dist-body"></tbody>
+    </table>
+  </div>
+
+  <div class="section">
+    <h2>Confidence 히스토그램 (콘텐츠 자산)</h2>
+    <table>
+      <thead><tr><th>구간</th><th>건수</th></tr></thead>
+      <tbody id="conf-hist-body"></tbody>
+    </table>
+  </div>
+
+  <div class="section">
+    <h2>Method 비중</h2>
+    <table>
+      <thead><tr><th>Method</th><th>건수</th></tr></thead>
+      <tbody id="method-body"></tbody>
+    </table>
+  </div>
+
+  <script>
+    const API = '/api/mapping/stats';
+
+    async function load() {
+      let data;
+      try {
+        const r = await fetch(API);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        data = await r.json();
+      } catch (e) {
+        document.querySelector('.cards').innerHTML = `<span class="err">API 오류: ${e.message}</span>`;
+        return;
+      }
+
+      document.getElementById('hit-rate').textContent =
+        (data.mapping_hit_rate * 100).toFixed(1) + '%';
+      document.getElementById('content-total').textContent =
+        (data.content_total ?? 0).toLocaleString();
+      document.getElementById('mapped-total').textContent =
+        (data.mapped_total ?? 0).toLocaleString();
+
+      // class dist
+      const totalCnt = data.class_distribution.reduce((s, r) => s + r.cnt, 0) || 1;
+      const tbody1 = document.getElementById('class-dist-body');
+      for (const r of data.class_distribution) {
+        const pct = (r.cnt / totalCnt * 100).toFixed(1);
+        const barW = Math.max(2, Math.round(pct * 2));
+        tbody1.innerHTML += `<tr>
+          <td>${r.class}</td><td>${r.status}</td><td>${r.cnt.toLocaleString()}</td>
+          <td><div class="bar-wrap"><div class="bar" style="width:${barW}px"></div>${pct}%</div></td>
+        </tr>`;
+      }
+
+      // conf hist
+      const hist = data.confidence_histogram || {};
+      const tbody2 = document.getElementById('conf-hist-body');
+      for (const [k, v] of Object.entries(hist)) {
+        tbody2.innerHTML += `<tr><td>${k}</td><td>${(v ?? 0).toLocaleString()}</td></tr>`;
+      }
+
+      // method dist
+      const tbody3 = document.getElementById('method-body');
+      for (const r of data.method_distribution) {
+        tbody3.innerHTML += `<tr><td>${r.method}</td><td>${r.cnt.toLocaleString()}</td></tr>`;
+      }
+    }
+
+    load();
+  </script>
+</body>
+</html>

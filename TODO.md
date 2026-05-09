@@ -3,7 +3,7 @@
 > **세션 재개 프롬프트**: "TODO.md 확인하고 `## Now`부터 이어서 진행해"
 
 ## Now (진행 중, 1~3개)
-- [ ] dev-asset-content-mapping M.2 — CLIP/OCR 자산↔콘텐츠 자동 매핑
+- [x] dev-asset-content-mapping M.2 — CLIP/OCR 자산↔콘텐츠 자동 매핑
 
 ## Next (이번 마일스톤 — Phase 3 MVP 기능)
 - [x] **3.1** archive-and-branch — `feature/mvp-features` 생성 (2026-05-06)

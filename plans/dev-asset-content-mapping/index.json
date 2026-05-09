@@ -35,23 +35,38 @@
     },
     {
       "step": "M.2",
-      "name": "asset-mapping",
-      "status": "pending"
+      "name": "asset-classification-and-mapping",
+      "status": "completed",
+      "summary": "0007 마이그레이션(asset_classifications 신설) + 폴더패턴/filename키워드 분류 워커 + 4축 텍스트 매핑(tag/filename/folder/ocr) + read-only API 4개 + 대시보드. 44테스트 통과, ac=199k행, 528콘텐츠 기준 매핑 3552건, idempotent OK",
+      "completed_at": "2026-05-10T07:30:00+09:00"
+    },
+    {
+      "step": "M.3",
+      "name": "clip-text-image-fallback",
+      "status": "completed",
+      "summary": "0008 마이그레이션(content_title_embeddings 캐시) + clip_text_mapper.py — ViT-B-32 text encoder로 528 콘텐츠 제목 임베딩 GPU 생성·캐시, 115k 미매핑 content 자산 cosine similarity 스캔(threshold=0.20), 7테스트 통과, idempotent OK",
+      "completed_at": "2026-05-10T07:40:00+09:00"
     },
     {
       "step": "M.4",
       "name": "video-mock-ingest",
-      "status": "pending"
+      "status": "completed",
+      "summary": "ingest/video_worker.py — 디자인 영상 자산(mp4 등 58건) 폴더패턴 분류 + mutagen best-effort duration_ms 추출. 10테스트 통과",
+      "completed_at": "2026-05-10T08:30:00+09:00"
     },
     {
       "step": "M.5",
       "name": "asset-search-api",
-      "status": "pending"
+      "status": "completed",
+      "summary": "search_filters.py에 class_filter/content_id/top_folder/hide_draft(기본 true) 4개 필터 추가. /search_text 파라미터 확장. 11테스트 통과",
+      "completed_at": "2026-05-10T08:00:00+09:00"
     },
     {
       "step": "M.6",
-      "name": "mapping-admin",
-      "status": "pending"
+      "name": "mapping-admin-ui",
+      "status": "completed",
+      "summary": "api/admin.py — 7개 write 엔드포인트(분류 confirm/reject/reclass + 매핑 confirm/reject/add + 미분류 bulk). 3개 admin HTML 화면. mapping+admin 라우터 main app 등록. 15테스트 통과",
+      "completed_at": "2026-05-10T08:20:00+09:00"
     },
     {
       "step": "M.8",

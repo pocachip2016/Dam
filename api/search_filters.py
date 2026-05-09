@@ -6,16 +6,20 @@ build_filters(p: dict) -> tuple[list[str], dict]
   All SQL is parameterized — no string interpolation.
 
 Supported keys in p:
-  ext         CSV extensions: "jpg,png" or ".jpg,.png"
-  folder      single folder token (folder_tokens GIN @>)
-  role        CSV roles: "poster,banner" (role_hint &&)
-  year_from   int — year_hint lower bound
-  year_to     int — year_hint upper bound
-  size_min_mb float — size_bytes lower bound (MB → bytes)
-  size_max_mb float — size_bytes upper bound
-  mtime_from  ISO date string — mtime lower bound
-  mtime_to    ISO date string — mtime upper bound
-  tag         CSV tag names — asset must have ALL listed tags (AND)
+  ext          CSV extensions: "jpg,png" or ".jpg,.png"
+  folder       single folder token (folder_tokens GIN @>)
+  role         CSV roles: "poster,banner" (role_hint &&)
+  year_from    int — year_hint lower bound
+  year_to      int — year_hint upper bound
+  size_min_mb  float — size_bytes lower bound (MB → bytes)
+  size_max_mb  float — size_bytes upper bound
+  mtime_from   ISO date string — mtime lower bound
+  mtime_to     ISO date string — mtime upper bound
+  tag          CSV tag names — asset must have ALL listed tags (AND)
+  class_filter asset_classifications.class 단일 값 (content/promotion/…)
+  content_id   int — asset_content_link.content_id 매핑 필터
+  top_folder   asset_storage.top_folder 일치 (디자이너/폴더별)
+  hide_draft   bool (default True) — draft+composition 자산 숨김
 """
 
 
@@ -78,5 +82,33 @@ def build_filters(p: dict) -> tuple[list[str], dict]:
                 )
             """)
             params[key] = tname
+
+    # M.5: class 필터
+    if p.get('class_filter'):
+        clauses.append(
+            "EXISTS (SELECT 1 FROM asset_classifications ac_cf"
+            " WHERE ac_cf.asset_id = a.id AND ac_cf.class = %(class_filter)s)"
+        )
+        params['class_filter'] = p['class_filter']
+
+    # M.5: 콘텐츠별 필터
+    if p.get('content_id') is not None:
+        clauses.append(
+            "EXISTS (SELECT 1 FROM asset_content_link acl_cf"
+            " WHERE acl_cf.asset_id = a.id AND acl_cf.content_id = %(content_id_f)s)"
+        )
+        params['content_id_f'] = int(p['content_id'])
+
+    # M.5: 디자이너/top_folder 필터 (asset_storage alias s 필요)
+    if p.get('top_folder'):
+        clauses.append("s.top_folder = %(top_folder)s")
+        params['top_folder'] = p['top_folder']
+
+    # M.5: draft+composition 기본 숨김
+    if p.get('hide_draft', True):
+        clauses.append(
+            "NOT EXISTS (SELECT 1 FROM asset_classifications ac_hd"
+            " WHERE ac_hd.asset_id = a.id AND ac_hd.class IN ('draft','composition'))"
+        )
 
     return clauses, params

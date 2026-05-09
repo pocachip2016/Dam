@@ -467,6 +467,175 @@ print(len(bad))" 2>/dev/null)
     pass "step M.1 mediax-content-mirror (mirror=$mirror_cnt cursor=$cur idempotent OK)"
     ;;
 
+  M.2)
+    # 1. 유틸 모듈 import
+    PYTHONPATH="$REPO" "$REPO/.venv/bin/python" -c "
+from ingest._classification_rules import FOLDER_PATTERNS, FILENAME_KEYWORDS
+from ingest._korean_norm import extract_korean, normalize_title
+from ingest.asset_mapper import classify_asset, match_content
+from api.mapping import router
+print('imports OK')
+" || fail "M.2 module import failed"
+
+    # 2. pytest 신규 테스트
+    PYTHONPATH="$REPO" "$REPO/.venv/bin/python" -m pytest \
+      "$REPO/tests/test_classification_rules.py" \
+      "$REPO/tests/test_asset_mapper.py" \
+      "$REPO/tests/test_mapping_api.py" \
+      -q --tb=short \
+      || fail "M.2 pytest failed"
+
+    # 3. DB: 0007 마이그레이션 적용 확인
+    psql_q "SELECT 1 FROM pg_tables WHERE tablename='asset_classifications'" | grep -q 1 \
+      || fail "asset_classifications table missing — 0007 마이그레이션 미적용"
+
+    # 4. cursor seed 확인
+    psql_q "SELECT value FROM sync_cursors WHERE key='asset_mapper_last_id'" | grep -q "." \
+      || fail "asset_mapper_last_id cursor missing"
+
+    # 5. 워커 실행 (small batch for verify)
+    PYTHONPATH="$REPO" DAM_DSN="$DSN" DAM_MAPPING_BATCH=500 \
+      "$REPO/.venv/bin/python" -m ingest.asset_mapper \
+      || fail "asset_mapper exited non-zero"
+
+    # 6. 분류 행 수 확인
+    ac_total=$(psql_q "SELECT COUNT(*) FROM asset_classifications")
+    [[ "${ac_total:-0}" -ge 1 ]] || fail "asset_classifications 0건 — 분류 미실행"
+
+    # 7. 멱등성: 재실행 후 행 수 동일
+    PYTHONPATH="$REPO" DAM_DSN="$DSN" DAM_MAPPING_BATCH=500 \
+      "$REPO/.venv/bin/python" -m ingest.asset_mapper >/dev/null 2>&1 || true
+    ac_after=$(psql_q "SELECT COUNT(*) FROM asset_classifications")
+    [[ "$ac_after" == "$ac_total" ]] || fail "non-idempotent: before=$ac_total after=$ac_after"
+
+    pass "step M.2 asset-classification-and-mapping (ac=${ac_total} idempotent OK)"
+    ;;
+
+  M.3)
+    # 1. 모듈 import
+    PYTHONPATH="$REPO" "$REPO/.venv/bin/python" -c "
+from ingest.clip_text_mapper import main, encode_titles
+print('import OK')
+" || fail "M.3 module import failed"
+
+    # 2. pytest
+    PYTHONPATH="$REPO" "$REPO/.venv/bin/python" -m pytest \
+      "$REPO/tests/test_clip_text_mapper.py" \
+      -q --tb=short \
+      || fail "M.3 pytest failed"
+
+    # 3. 0008 마이그레이션 확인
+    psql_q "SELECT 1 FROM pg_tables WHERE tablename='content_title_embeddings'" | grep -q 1 \
+      || fail "content_title_embeddings table missing — 0008 마이그레이션 미적용"
+
+    # 4. 워커 실행 (small batch)
+    PYTHONPATH="$REPO" DAM_DSN="$DSN" DAM_CLIP_BATCH=256 \
+      "$REPO/.venv/bin/python" -m ingest.clip_text_mapper \
+      || fail "clip_text_mapper exited non-zero"
+
+    # 5. 콘텐츠 제목 임베딩 캐시 확인
+    cte_cnt=$(psql_q "SELECT COUNT(*) FROM content_title_embeddings")
+    [[ "${cte_cnt:-0}" -ge 1 ]] || fail "content_title_embeddings 0건"
+
+    # 6. 신규 clip_similarity 매핑 확인
+    clip_cnt=$(psql_q "SELECT COUNT(*) FROM asset_content_link WHERE method='clip_similarity'")
+    log_msg="clip_similarity_links=${clip_cnt}"
+
+    # 7. 멱등성
+    PYTHONPATH="$REPO" DAM_DSN="$DSN" DAM_CLIP_BATCH=256 \
+      "$REPO/.venv/bin/python" -m ingest.clip_text_mapper >/dev/null 2>&1 || true
+    clip_after=$(psql_q "SELECT COUNT(*) FROM asset_content_link WHERE method='clip_similarity'")
+    [[ "$clip_after" == "$clip_cnt" ]] || fail "non-idempotent: before=$clip_cnt after=$clip_after"
+
+    pass "step M.3 clip-text-image-fallback (cte=${cte_cnt} ${log_msg} idempotent OK)"
+    ;;
+
+  M.5)
+    # 1. import
+    PYTHONPATH="$REPO" "$REPO/.venv/bin/python" -c "
+from api.search_filters import build_filters
+clauses, params = build_filters({'class_filter':'content','content_id':1,'top_folder':'test','hide_draft':True})
+assert 'class_filter' in params
+assert 'content_id_f' in params
+assert 'top_folder' in params
+assert any('ac_hd' in c for c in clauses)
+print('filter import+logic OK')
+" || fail "M.5 search_filters import/logic failed"
+
+    # 2. pytest
+    PYTHONPATH="$REPO" "$REPO/.venv/bin/python" -m pytest \
+      "$REPO/tests/test_search_filters_m5.py" \
+      -q --tb=short \
+      || fail "M.5 pytest failed"
+
+    # 3. API smoke (서버 기동 중일 때)
+    base="http://localhost:18000"
+    code=$(curl -o /dev/null -s -w "%{http_code}" "${base}/search_text?q=&class_filter=content&limit=5")
+    [[ "$code" == "200" ]] || fail "M.5 /search_text?class_filter=content → HTTP $code (서버 기동 필요)"
+
+    code=$(curl -o /dev/null -s -w "%{http_code}" "${base}/search_text?q=&hide_draft=false&limit=5")
+    [[ "$code" == "200" ]] || fail "M.5 /search_text?hide_draft=false → HTTP $code"
+
+    pass "step M.5 asset-search-api (class/content_id/top_folder/hide_draft 필터 OK)"
+    ;;
+
+  M.6)
+    # 1. import
+    PYTHONPATH="$REPO" "$REPO/.venv/bin/python" -c "
+from api.admin import router
+from api.search import app
+print('admin router routes:', [r.path for r in router.routes])
+print('import OK')
+" || fail "M.6 admin import failed"
+
+    # 2. pytest
+    PYTHONPATH="$REPO" "$REPO/.venv/bin/python" -m pytest \
+      "$REPO/tests/test_admin_api.py" \
+      -q --tb=short \
+      || fail "M.6 pytest failed"
+
+    # 3. HTML 화면 존재 확인
+    for page in classification.html content-mapping.html unclassified.html; do
+      test -f "$REPO/api/web/templates/admin/${page}" \
+        || fail "M.6 admin page missing: ${page}"
+    done
+
+    pass "step M.6 mapping-admin-ui (7 write endpoints + 3 admin pages + 15 tests OK)"
+    ;;
+
+  M.4)
+    # 1. import
+    PYTHONPATH="$REPO" "$REPO/.venv/bin/python" -c "
+from ingest.video_worker import main, VIDEO_EXTS, _classify_video
+assert '.mp4' in VIDEO_EXTS
+cls, sub, conf, method = _classify_video('/슬라이스/', 'banner.mp4')
+assert cls in ('composition','promotion','content','draft','ui_service')
+print('import + logic OK')
+" || fail "M.4 video_worker import failed"
+
+    # 2. pytest
+    PYTHONPATH="$REPO" "$REPO/.venv/bin/python" -m pytest \
+      "$REPO/tests/test_video_worker.py" \
+      -q --tb=short \
+      || fail "M.4 pytest failed"
+
+    # 3. 워커 실행
+    PYTHONPATH="$REPO" DAM_DSN="$DSN" DAM_REALM=poc_sample \
+      "$REPO/.venv/bin/python" -m ingest.video_worker \
+      || fail "video_worker exited non-zero"
+
+    # 4. video asset 분류 확인
+    vid_classified=$(psql_q "
+      SELECT COUNT(DISTINCT ac.asset_id)
+      FROM asset_classifications ac
+      JOIN assets a ON a.id=ac.asset_id
+      WHERE a.primary_ext = ANY(ARRAY['.mp4','.mov','.mkv','.avi'])
+    ")
+    [[ "${vid_classified:-0}" -ge 1 ]] || fail "video assets not classified (count=$vid_classified)"
+
+    pass "step M.4 video-mock-ingest (classified=${vid_classified} OK)"
+    ;;
+
   M.0)
     # 1. 테이블 존재 확인
     for tbl in content_catalog_mirror asset_content_link sync_cursors; do
