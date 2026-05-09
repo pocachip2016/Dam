@@ -50,7 +50,9 @@
     {
       "step": "M.4",
       "name": "video-mock-ingest",
-      "status": "pending"
+      "status": "completed",
+      "summary": "ingest/video_worker.py — 디자인 영상 자산(mp4 등 58건) 폴더패턴 분류 + mutagen best-effort duration_ms 추출. 10테스트 통과",
+      "completed_at": "2026-05-10T08:30:00+09:00"
     },
     {
       "step": "M.5",

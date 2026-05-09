@@ -603,6 +603,39 @@ print('import OK')
     pass "step M.6 mapping-admin-ui (7 write endpoints + 3 admin pages + 15 tests OK)"
     ;;
 
+  M.4)
+    # 1. import
+    PYTHONPATH="$REPO" "$REPO/.venv/bin/python" -c "
+from ingest.video_worker import main, VIDEO_EXTS, _classify_video
+assert '.mp4' in VIDEO_EXTS
+cls, sub, conf, method = _classify_video('/슬라이스/', 'banner.mp4')
+assert cls in ('composition','promotion','content','draft','ui_service')
+print('import + logic OK')
+" || fail "M.4 video_worker import failed"
+
+    # 2. pytest
+    PYTHONPATH="$REPO" "$REPO/.venv/bin/python" -m pytest \
+      "$REPO/tests/test_video_worker.py" \
+      -q --tb=short \
+      || fail "M.4 pytest failed"
+
+    # 3. 워커 실행
+    PYTHONPATH="$REPO" DAM_DSN="$DSN" DAM_REALM=poc_sample \
+      "$REPO/.venv/bin/python" -m ingest.video_worker \
+      || fail "video_worker exited non-zero"
+
+    # 4. video asset 분류 확인
+    vid_classified=$(psql_q "
+      SELECT COUNT(DISTINCT ac.asset_id)
+      FROM asset_classifications ac
+      JOIN assets a ON a.id=ac.asset_id
+      WHERE a.primary_ext = ANY(ARRAY['.mp4','.mov','.mkv','.avi'])
+    ")
+    [[ "${vid_classified:-0}" -ge 1 ]] || fail "video assets not classified (count=$vid_classified)"
+
+    pass "step M.4 video-mock-ingest (classified=${vid_classified} OK)"
+    ;;
+
   M.0)
     # 1. 테이블 존재 확인
     for tbl in content_catalog_mirror asset_content_link sync_cursors; do
