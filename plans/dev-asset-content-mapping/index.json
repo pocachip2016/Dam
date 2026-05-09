@@ -1,0 +1,62 @@
+{
+  "project": "Dam",
+  "phase": "dev-asset-content-mapping",
+  "description": "80TB 디자인 에셋 ↔ mediaX 작품 연결 파이프라인. mediaX meta_core를 미러링해 CLIP/OCR 기반 자동 매핑 수행. KOBIS ingest·웹서치·KOBIS 백필은 mediaX dev-meta-core-extraction으로 이관.",
+  "decisions": {
+    "kobis_ingest": "삭제 — mediaX dev-meta-core-extraction step4 에서 처리",
+    "web_search_cache": "삭제 — mediaX dev-meta-core-extraction step5 에서 처리",
+    "kobis_expand": "삭제 — mediaX dev-meta-core-extraction step6 에서 처리",
+    "content_source": "mediaX /meta-core/contents/since?ts=... HTTP 폴링 (30분) + changefeed webhook",
+    "dam_mapping_threshold": 0.85,
+    "mapping_threshold_adjustable": true,
+    "video_ingest": "Dam 고유 영역 — 자산 측 영상 파이프라인 (M.4 유지)"
+  },
+  "dependencies": {
+    "mediaX": [
+      "dev-dam-bridge step0 (public-api-module)",
+      "dev-dam-bridge step1 (content-export-api)",
+      "dev-dam-bridge step2 (content-changefeed)"
+    ]
+  },
+  "steps": [
+    {
+      "step": "M.0",
+      "name": "mapping-schema",
+      "status": "completed",
+      "summary": "006_content_mapping.sql 신설 — content_catalog_mirror/asset_content_link/sync_cursors 3테이블 + 폴링 시드",
+      "completed_at": "2026-05-09T00:00:00+09:00"
+    },
+    {
+      "step": "M.1",
+      "name": "mediax-content-mirror",
+      "status": "completed",
+      "summary": "mediaX /contents/since 폴링 → content_catalog_mirror 528건 UPSERT, cursor 기반 증분 동기화",
+      "completed_at": "2026-05-09T21:37:07+09:00"
+    },
+    {
+      "step": "M.2",
+      "name": "asset-mapping",
+      "status": "pending"
+    },
+    {
+      "step": "M.4",
+      "name": "video-mock-ingest",
+      "status": "pending"
+    },
+    {
+      "step": "M.5",
+      "name": "asset-search-api",
+      "status": "pending"
+    },
+    {
+      "step": "M.6",
+      "name": "mapping-admin",
+      "status": "pending"
+    },
+    {
+      "step": "M.8",
+      "name": "wrap",
+      "status": "pending"
+    }
+  ]
+}

@@ -2,3 +2,4 @@ psycopg[binary]
 fastapi
 uvicorn
 Pillow
+httpx>=0.27

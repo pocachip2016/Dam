@@ -431,6 +431,59 @@ print(len(bad))" 2>/dev/null)
     pass "step 4.G.1 guard-script"
     ;;
 
+  M.1)
+    # 1. 모듈 import 가능
+    PYTHONPATH="$REPO" "$REPO/.venv/bin/python" -c "from ingest.mediax_mirror import main" \
+      || fail "ingest.mediax_mirror not importable"
+
+    # 2. mediaX 도달 가능
+    http_code=$(curl -o /dev/null -s -w "%{http_code}" \
+      "http://localhost:8000/api/meta-core/contents/since?ts=0&limit=1")
+    [[ "$http_code" == "200" ]] \
+      || fail "mediaX /api/meta-core/contents/since → HTTP $http_code (backend 재시작 필요)"
+
+    # 3. 워커 실행 (oneshot)
+    PYTHONPATH="$REPO" DAM_DSN="$DSN" MEDIAX_URL="http://localhost:8000" \
+      "$REPO/.venv/bin/python" -m ingest.mediax_mirror \
+      || fail "mediax_mirror exited non-zero"
+
+    # 4. 미러 행 수 ≥ mediaX total (0건이면 둘 다 0도 OK)
+    mirror_cnt=$(psql_q "SELECT COUNT(*) FROM content_catalog_mirror")
+    src_cnt=$(curl -fsS "http://localhost:8000/api/meta-core/contents/since?ts=0&limit=1" \
+      | python3 -c "import json,sys; print(json.load(sys.stdin).get('total',0))")
+    [[ "${mirror_cnt:-0}" -ge "${src_cnt:-0}" ]] \
+      || fail "mirror=$mirror_cnt < mediaX total=$src_cnt"
+
+    # 5. cursor 가 0 에서 advance 했는지
+    cur=$(psql_q "SELECT value FROM sync_cursors WHERE key='content_mirror_next_ts'")
+    [[ "$cur" != "0" ]] || fail "cursor still 0 after sync"
+
+    # 6. 멱등성: 한 번 더 돌려도 row 수 동일
+    PYTHONPATH="$REPO" DAM_DSN="$DSN" MEDIAX_URL="http://localhost:8000" \
+      "$REPO/.venv/bin/python" -m ingest.mediax_mirror >/dev/null 2>&1 || true
+    after=$(psql_q "SELECT COUNT(*) FROM content_catalog_mirror")
+    [[ "$after" == "$mirror_cnt" ]] || fail "non-idempotent: before=$mirror_cnt after=$after"
+
+    pass "step M.1 mediax-content-mirror (mirror=$mirror_cnt cursor=$cur idempotent OK)"
+    ;;
+
+  M.0)
+    # 1. 테이블 존재 확인
+    for tbl in content_catalog_mirror asset_content_link sync_cursors; do
+      psql_q "SELECT 1 FROM pg_tables WHERE tablename='$tbl'" | grep -q 1 \
+        || fail "table $tbl missing"
+    done
+    # 2. sync_cursors 시드 확인
+    val=$(psql_q "SELECT value FROM sync_cursors WHERE key='content_mirror_next_ts'")
+    [[ "$val" == "0" ]] || fail "sync_cursor seed missing (got: $val)"
+    # 3. FK 무결성 — 존재하지 않는 FK 참조가 거부되는지 확인 (stderr 포함해 캡처)
+    fk_out=$(docker exec dam_postgres psql -U dam -d dam -tAc \
+      "INSERT INTO asset_content_link(asset_id,content_id,method) VALUES(0,0,'manual')" 2>&1) || true
+    echo "$fk_out" | grep -q "violates" \
+      || fail "FK constraint not working"
+    pass "step M.0 mapping-schema (3 tables + seed OK)"
+    ;;
+
   *)
     fail "unknown step '$STEP'"
     ;;

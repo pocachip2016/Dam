@@ -3,6 +3,7 @@
 > **세션 재개 프롬프트**: "TODO.md 확인하고 `## Now`부터 이어서 진행해"
 
 ## Now (진행 중, 1~3개)
+- [ ] dev-asset-content-mapping M.2 — CLIP/OCR 자산↔콘텐츠 자동 매핑
 
 ## Next (이번 마일스톤 — Phase 3 MVP 기능)
 - [x] **3.1** archive-and-branch — `feature/mvp-features` 생성 (2026-05-06)
@@ -15,8 +16,10 @@
 
 ## Later (백로그 — Phase 4+)
 - [ ] Phase 4 운영 준비 (auth / monitoring / backup / deployment) — `plans/dev-ops-readiness/`
+- [x] dev-asset-content-mapping M.0 — 006_content_mapping.sql 신설 (2026-05-09)
+- [x] dev-asset-content-mapping M.1 — 528건 UPSERT, cursor 증분 동기화 (2026-05-09)
+- [ ] dev-asset-content-mapping M.4–M.6 — 영상 인제스트·검색 API·매핑 어드민 UI
 - [ ] Phase 5 실데이터 이관 (단방향 push, ~1.48 TB) — 인프라 협의 후 plan 작성
-- [ ] title-entity 모델 + TMDB/IPTV 연동 (Phase 미할당)
 - [ ] PSD 썸네일 처리 (Phase 5 실데이터 시점)
 - [ ] inotify 증분 인덱싱 (Phase 5 후)
 
