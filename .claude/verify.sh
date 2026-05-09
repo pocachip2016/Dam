@@ -550,6 +550,35 @@ print('import OK')
     pass "step M.3 clip-text-image-fallback (cte=${cte_cnt} ${log_msg} idempotent OK)"
     ;;
 
+  M.5)
+    # 1. import
+    PYTHONPATH="$REPO" "$REPO/.venv/bin/python" -c "
+from api.search_filters import build_filters
+clauses, params = build_filters({'class_filter':'content','content_id':1,'top_folder':'test','hide_draft':True})
+assert 'class_filter' in params
+assert 'content_id_f' in params
+assert 'top_folder' in params
+assert any('ac_hd' in c for c in clauses)
+print('filter import+logic OK')
+" || fail "M.5 search_filters import/logic failed"
+
+    # 2. pytest
+    PYTHONPATH="$REPO" "$REPO/.venv/bin/python" -m pytest \
+      "$REPO/tests/test_search_filters_m5.py" \
+      -q --tb=short \
+      || fail "M.5 pytest failed"
+
+    # 3. API smoke (서버 기동 중일 때)
+    base="http://localhost:18000"
+    code=$(curl -o /dev/null -s -w "%{http_code}" "${base}/search_text?q=&class_filter=content&limit=5")
+    [[ "$code" == "200" ]] || fail "M.5 /search_text?class_filter=content → HTTP $code (서버 기동 필요)"
+
+    code=$(curl -o /dev/null -s -w "%{http_code}" "${base}/search_text?q=&hide_draft=false&limit=5")
+    [[ "$code" == "200" ]] || fail "M.5 /search_text?hide_draft=false → HTTP $code"
+
+    pass "step M.5 asset-search-api (class/content_id/top_folder/hide_draft 필터 OK)"
+    ;;
+
   M.0)
     # 1. 테이블 존재 확인
     for tbl in content_catalog_mirror asset_content_link sync_cursors; do

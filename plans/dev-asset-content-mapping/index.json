@@ -55,8 +55,9 @@
     {
       "step": "M.5",
       "name": "asset-search-api",
-      "status": "pending",
-      "scope": "class 필터 / 콘텐츠별 / 디자이너별 검색 + draft/composition 기본 hide"
+      "status": "completed",
+      "summary": "search_filters.py에 class_filter/content_id/top_folder/hide_draft(기본 true) 4개 필터 추가. /search_text 파라미터 확장. 11테스트 통과",
+      "completed_at": "2026-05-10T08:00:00+09:00"
     },
     {
       "step": "M.6",

@@ -193,8 +193,12 @@ def search_text(
     size_max_mb: Optional[float] = Query(None),
     mtime_from: Optional[str]  = Query(None, description='ISO date'),
     mtime_to:   Optional[str]  = Query(None, description='ISO date'),
-    tag:        Optional[str]  = Query(None, description='태그 CSV (AND 조건)'),
-    text_search: Optional[str] = Query(None, description='ocr_only | clip_only (기본: 둘 다)'),
+    tag:          Optional[str]  = Query(None, description='태그 CSV (AND 조건)'),
+    text_search:  Optional[str]  = Query(None, description='ocr_only | clip_only (기본: 둘 다)'),
+    class_filter: Optional[str]  = Query(None, description='자산 분류 class (content/promotion/…)'),
+    content_id:   Optional[int]  = Query(None, description='콘텐츠 ID — 해당 콘텐츠 매핑 자산만'),
+    top_folder:   Optional[str]  = Query(None, description='최상위 폴더 (디자이너/카테고리)'),
+    hide_draft:   bool           = Query(True,  description='draft+composition 자산 숨김 (기본: true)'),
 ):
     filter_clauses, filter_params = build_filters({
         'ext': ext, 'folder': folder, 'role': role,
@@ -202,6 +206,10 @@ def search_text(
         'size_min_mb': size_min_mb, 'size_max_mb': size_max_mb,
         'mtime_from': mtime_from, 'mtime_to': mtime_to,
         'tag': tag,
+        'class_filter': class_filter,
+        'content_id': content_id,
+        'top_folder': top_folder,
+        'hide_draft': hide_draft,
     })
 
     if q and text_search != 'ocr_only':
@@ -226,7 +234,7 @@ def search_text(
                            a.thumbnail_path, s.physical_path,
                            a.year_hint, a.role_hint,
                            ts_headline('simple', coalesce(a.ocr_text,''), plainto_tsquery('simple', %(q_plain)s),
-                             'MaxFragments=1,MaxWords=10') AS ocr_snippet
+                             'MaxFragments=1,MinWords=5,MaxWords=10') AS ocr_snippet
                     FROM embeddings e
                     JOIN assets a ON a.id = e.asset_id
                     JOIN asset_storage s ON s.asset_id = e.asset_id AND s.realm = %(realm)s
@@ -250,7 +258,7 @@ def search_text(
                            a.thumbnail_path, s.physical_path,
                            a.year_hint, a.role_hint,
                            ts_headline('simple', coalesce(a.ocr_text,''), plainto_tsquery('simple', %(q_plain)s),
-                             'MaxFragments=1,MaxWords=10') AS ocr_snippet
+                             'MaxFragments=1,MinWords=5,MaxWords=10') AS ocr_snippet
                     FROM assets a
                     JOIN asset_storage s ON s.asset_id = a.id
                     WHERE {where}
