@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>미분류 자산 처리</title>
+  <style>
+    body { font-family: sans-serif; margin: 24px; background: #f5f5f5; }
+    h1 { font-size: 1.3rem; margin-bottom: 12px; }
+    .nav { display: flex; gap: 12px; margin-bottom: 20px; font-size: 0.9rem; }
+    .nav a { color: #4f8ef7; text-decoration: none; }
+    .toolbar { display: flex; gap: 10px; margin-bottom: 14px; align-items: center; flex-wrap: wrap; }
+    .toolbar select, .toolbar input { padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem; }
+    .btn { padding: 6px 14px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; }
+    .btn-primary { background: #4f8ef7; color: #fff; }
+    .btn-ok { background: #34a853; color: #fff; }
+    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px #0001; }
+    th, td { padding: 9px 12px; text-align: left; border-bottom: 1px solid #eee; font-size: 0.85rem; }
+    th { background: #f0f0f0; font-weight: 600; }
+    .msg { margin-top: 10px; font-size: 0.85rem; color: #555; }
+    input[type=checkbox] { width: 15px; height: 15px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div class="nav">
+    <a href="/admin/mapping-dashboard">대시보드</a>
+    <a href="/admin/classification">분류 검토</a>
+    <a href="/admin/content-mapping">매핑 검토</a>
+    <a href="/admin/unclassified">미분류 처리</a>
+  </div>
+  <h1>미분류 자산 처리</h1>
+
+  <div class="toolbar">
+    <button class="btn btn-primary" onclick="load()">미분류 로드</button>
+    <label>일괄 분류:
+      <select id="sel-bulk-class">
+        <option value="content">content</option>
+        <option value="promotion">promotion</option>
+        <option value="seasonal">seasonal</option>
+        <option value="pricing">pricing</option>
+        <option value="branding">branding</option>
+        <option value="ui_service">ui_service</option>
+        <option value="composition">composition</option>
+        <option value="draft">draft</option>
+      </select>
+    </label>
+    <button class="btn btn-ok" onclick="bulkClassify()">선택 항목 분류 적용</button>
+    <button class="btn" onclick="toggleAll()" style="background:#ddd">전체 선택/해제</button>
+  </div>
+
+  <div id="msg" class="msg"></div>
+
+  <table>
+    <thead><tr><th><input type="checkbox" id="chk-all" onchange="toggleAll()"></th><th>Asset ID</th><th>파일명</th><th>폴더</th></tr></thead>
+    <tbody id="tbody"></tbody>
+  </table>
+
+  <script>
+    let rows = [];
+
+    async function load() {
+      const r = await fetch('/api/mapping/by-class/unclassified?status=candidate&size=200');
+      const d = await r.json();
+      rows = d.assets || [];
+      document.getElementById('msg').textContent = `미분류 총 ${d.total}건 (최대 200건 표시)`;
+      render();
+    }
+
+    function render() {
+      const tbody = document.getElementById('tbody');
+      tbody.innerHTML = '';
+      for (const row of rows) {
+        tbody.innerHTML += `<tr>
+          <td><input type="checkbox" class="row-chk" value="${row.asset_id}"></td>
+          <td>${row.asset_id}</td>
+          <td>${row.filename||''}</td>
+          <td>${row.folder_path||''}</td>
+        </tr>`;
+      }
+    }
+
+    function toggleAll() {
+      const all = document.getElementById('chk-all').checked;
+      document.querySelectorAll('.row-chk').forEach(c => c.checked = all);
+    }
+
+    async function bulkClassify() {
+      const cls = document.getElementById('sel-bulk-class').value;
+      const ids = [...document.querySelectorAll('.row-chk:checked')].map(c => parseInt(c.value));
+      if (!ids.length) { alert('선택된 항목이 없습니다.'); return; }
+      const r = await fetch('/api/admin/unclassified/bulk-classify', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({asset_ids: ids, cls}),
+      });
+      if (r.ok) {
+        const d = await r.json();
+        document.getElementById('msg').textContent = `${d.classified}건 → ${d.class} 분류 완료`;
+        load();
+      } else {
+        alert('오류: ' + r.status);
+      }
+    }
+  </script>
+</body>
+</html>

@@ -34,6 +34,8 @@ except ImportError:
 from api.search_filters import build_filters
 from api.tags import router as tags_router
 from api.collections import router as collections_router
+from api.mapping import router as mapping_router
+from api.admin import router as admin_router
 
 try:
     import psycopg
@@ -53,6 +55,8 @@ if _static_dir.exists():
 
 app.include_router(tags_router)
 app.include_router(collections_router)
+app.include_router(mapping_router)
+app.include_router(admin_router)
 
 @app.get('/', include_in_schema=False)
 def root():

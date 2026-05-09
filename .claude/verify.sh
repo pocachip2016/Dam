@@ -579,6 +579,30 @@ print('filter import+logic OK')
     pass "step M.5 asset-search-api (class/content_id/top_folder/hide_draft 필터 OK)"
     ;;
 
+  M.6)
+    # 1. import
+    PYTHONPATH="$REPO" "$REPO/.venv/bin/python" -c "
+from api.admin import router
+from api.search import app
+print('admin router routes:', [r.path for r in router.routes])
+print('import OK')
+" || fail "M.6 admin import failed"
+
+    # 2. pytest
+    PYTHONPATH="$REPO" "$REPO/.venv/bin/python" -m pytest \
+      "$REPO/tests/test_admin_api.py" \
+      -q --tb=short \
+      || fail "M.6 pytest failed"
+
+    # 3. HTML 화면 존재 확인
+    for page in classification.html content-mapping.html unclassified.html; do
+      test -f "$REPO/api/web/templates/admin/${page}" \
+        || fail "M.6 admin page missing: ${page}"
+    done
+
+    pass "step M.6 mapping-admin-ui (7 write endpoints + 3 admin pages + 15 tests OK)"
+    ;;
+
   M.0)
     # 1. 테이블 존재 확인
     for tbl in content_catalog_mirror asset_content_link sync_cursors; do

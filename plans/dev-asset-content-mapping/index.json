@@ -62,8 +62,9 @@
     {
       "step": "M.6",
       "name": "mapping-admin-ui",
-      "status": "pending",
-      "scope": "본격 검토 UI — 분류 confirm/reject/reclass, 매핑 confirm/reject/manual-add, 미분류 일괄 처리"
+      "status": "completed",
+      "summary": "api/admin.py — 7개 write 엔드포인트(분류 confirm/reject/reclass + 매핑 confirm/reject/add + 미분류 bulk). 3개 admin HTML 화면. mapping+admin 라우터 main app 등록. 15테스트 통과",
+      "completed_at": "2026-05-10T08:20:00+09:00"
     },
     {
       "step": "M.8",
