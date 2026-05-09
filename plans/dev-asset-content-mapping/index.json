@@ -43,8 +43,9 @@
     {
       "step": "M.3",
       "name": "clip-text-image-fallback",
-      "status": "pending",
-      "scope": "텍스트 시그널 약한 자산만 대상 — open_clip text encoder로 content title 임베딩 → asset embedding과 cosine similarity"
+      "status": "completed",
+      "summary": "0008 마이그레이션(content_title_embeddings 캐시) + clip_text_mapper.py — ViT-B-32 text encoder로 528 콘텐츠 제목 임베딩 GPU 생성·캐시, 115k 미매핑 content 자산 cosine similarity 스캔(threshold=0.20), 7테스트 통과, idempotent OK",
+      "completed_at": "2026-05-10T07:40:00+09:00"
     },
     {
       "step": "M.4",

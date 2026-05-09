@@ -511,6 +511,45 @@ print('imports OK')
     pass "step M.2 asset-classification-and-mapping (ac=${ac_total} idempotent OK)"
     ;;
 
+  M.3)
+    # 1. 모듈 import
+    PYTHONPATH="$REPO" "$REPO/.venv/bin/python" -c "
+from ingest.clip_text_mapper import main, encode_titles
+print('import OK')
+" || fail "M.3 module import failed"
+
+    # 2. pytest
+    PYTHONPATH="$REPO" "$REPO/.venv/bin/python" -m pytest \
+      "$REPO/tests/test_clip_text_mapper.py" \
+      -q --tb=short \
+      || fail "M.3 pytest failed"
+
+    # 3. 0008 마이그레이션 확인
+    psql_q "SELECT 1 FROM pg_tables WHERE tablename='content_title_embeddings'" | grep -q 1 \
+      || fail "content_title_embeddings table missing — 0008 마이그레이션 미적용"
+
+    # 4. 워커 실행 (small batch)
+    PYTHONPATH="$REPO" DAM_DSN="$DSN" DAM_CLIP_BATCH=256 \
+      "$REPO/.venv/bin/python" -m ingest.clip_text_mapper \
+      || fail "clip_text_mapper exited non-zero"
+
+    # 5. 콘텐츠 제목 임베딩 캐시 확인
+    cte_cnt=$(psql_q "SELECT COUNT(*) FROM content_title_embeddings")
+    [[ "${cte_cnt:-0}" -ge 1 ]] || fail "content_title_embeddings 0건"
+
+    # 6. 신규 clip_similarity 매핑 확인
+    clip_cnt=$(psql_q "SELECT COUNT(*) FROM asset_content_link WHERE method='clip_similarity'")
+    log_msg="clip_similarity_links=${clip_cnt}"
+
+    # 7. 멱등성
+    PYTHONPATH="$REPO" DAM_DSN="$DSN" DAM_CLIP_BATCH=256 \
+      "$REPO/.venv/bin/python" -m ingest.clip_text_mapper >/dev/null 2>&1 || true
+    clip_after=$(psql_q "SELECT COUNT(*) FROM asset_content_link WHERE method='clip_similarity'")
+    [[ "$clip_after" == "$clip_cnt" ]] || fail "non-idempotent: before=$clip_cnt after=$clip_after"
+
+    pass "step M.3 clip-text-image-fallback (cte=${cte_cnt} ${log_msg} idempotent OK)"
+    ;;
+
   M.0)
     # 1. 테이블 존재 확인
     for tbl in content_catalog_mirror asset_content_link sync_cursors; do
