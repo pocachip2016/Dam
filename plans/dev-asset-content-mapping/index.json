@@ -35,8 +35,16 @@
     },
     {
       "step": "M.2",
-      "name": "asset-mapping",
-      "status": "pending"
+      "name": "asset-classification-and-mapping",
+      "status": "completed",
+      "summary": "0007 마이그레이션(asset_classifications 신설) + 폴더패턴/filename키워드 분류 워커 + 4축 텍스트 매핑(tag/filename/folder/ocr) + read-only API 4개 + 대시보드. 44테스트 통과, ac=199k행, 528콘텐츠 기준 매핑 3552건, idempotent OK",
+      "completed_at": "2026-05-10T07:30:00+09:00"
+    },
+    {
+      "step": "M.3",
+      "name": "clip-text-image-fallback",
+      "status": "pending",
+      "scope": "텍스트 시그널 약한 자산만 대상 — open_clip text encoder로 content title 임베딩 → asset embedding과 cosine similarity"
     },
     {
       "step": "M.4",
@@ -46,12 +54,14 @@
     {
       "step": "M.5",
       "name": "asset-search-api",
-      "status": "pending"
+      "status": "pending",
+      "scope": "class 필터 / 콘텐츠별 / 디자이너별 검색 + draft/composition 기본 hide"
     },
     {
       "step": "M.6",
-      "name": "mapping-admin",
-      "status": "pending"
+      "name": "mapping-admin-ui",
+      "status": "pending",
+      "scope": "본격 검토 UI — 분류 confirm/reject/reclass, 매핑 confirm/reject/manual-add, 미분류 일괄 처리"
     },
     {
       "step": "M.8",
