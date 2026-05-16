@@ -653,6 +653,47 @@ print('import + logic OK')
     pass "step M.0 mapping-schema (3 tables + seed OK)"
     ;;
 
+  poster-ingest-P.1)
+    # 1. DB 마이그레이션 파일 존재
+    test -f "$REPO/db/migrations/0009_poster_ingest.sql" \
+      || fail "0009_poster_ingest.sql missing"
+    grep -q "poster_ingest_log" "$REPO/db/migrations/0009_poster_ingest.sql" \
+      || fail "poster_ingest_log table definition missing"
+    echo "  ✓ 0009_poster_ingest.sql 존재"
+
+    # 2. API 모듈 import OK
+    PYTHONPATH="$REPO" "$REPO/.venv/bin/python" -c "
+from api.ingest_poster import router, PosterIngestRequest, PosterIngestResponse
+routes = [r.path for r in router.routes]
+assert '/api/ingest/poster' in routes, f'POST /api/ingest/poster 없음 (routes={routes})'
+assert '/api/ingest/poster/status/{image_id}' in routes, 'GET status 없음'
+print('  ✓ ingest_poster routes:', routes)
+" || fail "api.ingest_poster import 또는 route 확인 실패"
+
+    # 3. search.py 에 router 등록 확인
+    grep -q "ingest_poster_router" "$REPO/api/search.py" \
+      || fail "ingest_poster_router not registered in search.py"
+    echo "  ✓ search.py 에 router 등록 확인"
+
+    # 4. docker-compose 포스터 볼륨 추가 확인
+    grep -q "DAM_POSTER_ROOT" "$REPO/docker-compose.yml" \
+      || fail "DAM_POSTER_ROOT env missing in docker-compose.yml"
+    grep -q "data/posters" "$REPO/docker-compose.yml" \
+      || fail "posters write volume missing in docker-compose.yml"
+    echo "  ✓ docker-compose 포스터 볼륨 확인"
+
+    # 5. DB 테이블 존재 확인 (컨테이너 기동 중일 때)
+    if docker exec dam_postgres pg_isready -U dam -d dam >/dev/null 2>&1; then
+      psql_q "SELECT 1 FROM pg_tables WHERE tablename='poster_ingest_log'" | grep -q 1 \
+        || fail "poster_ingest_log table not in DB (migration 미적용?)"
+      echo "  ✓ poster_ingest_log 테이블 DB 확인"
+    else
+      echo "  ⚠ dam_postgres 미기동 — DB 테이블 확인 스킵 (코드 검증만)"
+    fi
+
+    pass "step poster-ingest-P.1 Dam DB migration + ingest API"
+    ;;
+
   *)
     fail "unknown step '$STEP'"
     ;;

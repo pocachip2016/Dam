@@ -41,19 +41,22 @@ services:
     command: redis-server --appendonly yes
     restart: unless-stopped
 
-  # Phase 2+ FastAPI 워커 — 파이프라인 구축 후 활성화
-  # dam_api:
-  #   build: .
-  #   container_name: dam_api
-  #   ports:
-  #     - "18000:8000"
-  #   environment:
-  #     DAM_DSN: postgresql://dam:dam@dam_postgres:5432/dam
-  #     DAM_REDIS: redis://dam_redis:6379/0
-  #   depends_on:
-  #     dam_postgres:
-  #       condition: service_healthy
-  #   restart: unless-stopped
+  dam_api:
+    build: .
+    container_name: dam_api
+    ports:
+      - "18000:8000"
+    environment:
+      DAM_DSN: postgresql://dam:dam@dam_postgres:5432/dam
+      DAM_REDIS: redis://dam_redis:6379/0
+      DAM_POSTER_ROOT: /dam_posters
+    volumes:
+      - /mnt/d/Work/Dam/dam_data:/home/ktalpha/Work/Dam/dam_data:ro
+      - ./data/posters:/dam_posters   # poster ingest 쓰기 전용 볼륨
+    depends_on:
+      dam_postgres:
+        condition: service_healthy
+    restart: unless-stopped
 
 networks:
   default:

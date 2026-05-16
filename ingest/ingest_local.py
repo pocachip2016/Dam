@@ -119,7 +119,7 @@ def ingest(conn) -> dict:
         inserted = cur.rowcount
 
         cur.execute("""
-            INSERT INTO asset_tags (asset_id, namespace, value, source)
+            INSERT INTO asset_tags_legacy (asset_id, namespace, value, source)
             SELECT asset_id, 'project', top_folder, 'path_inference'
             FROM _stage WHERE top_folder IS NOT NULL
             ON CONFLICT DO NOTHING

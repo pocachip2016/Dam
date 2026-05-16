@@ -46,6 +46,8 @@ IMAGE_EXTS = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.tiff', '.tif'}
 def make_thumb(args) -> dict:
     """단일 파일 썸네일 생성. ProcessPoolExecutor용."""
     asset_id, src_path, thumb_path = args
+    if Path(thumb_path).exists():
+        return {'asset_id': asset_id, 'thumb_path': thumb_path, 'ok': True}
     try:
         with Image.open(src_path) as img:
             img = img.convert('RGB')
