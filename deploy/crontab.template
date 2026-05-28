@@ -1,0 +1,8 @@
+# Dam crontab — install via: crontab deploy/crontab.template (as dam user)
+# Paths assume deployment at /opt/dam
+
+# Daily DB backup at 03:00
+0 3 * * *  bash /opt/dam/scripts/backup_db.sh     >> /var/log/dam/backup_db.log 2>&1
+
+# Weekly thumbnail rsync on Sunday at 04:00
+0 4 * * 0  bash /opt/dam/scripts/backup_thumbs.sh >> /var/log/dam/backup_thumbs.log 2>&1

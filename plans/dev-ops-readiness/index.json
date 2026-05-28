@@ -2,7 +2,7 @@
   "project": "Dam",
   "phase": "ops-readiness",
   "steps": [
-    {"step": "4.1", "name": "branch-and-scaffold", "status": "pending"},
+    {"step": "4.1", "name": "branch-and-scaffold", "status": "completed", "summary": "feature/ops-readiness 브랜치 + deploy/ 스켈레톤 5파일 + compose dev/prod 분리", "completed_at": "2026-05-28T00:00:00+09:00"},
     {"step": "4.2", "name": "auth", "status": "pending"},
     {"step": "4.3", "name": "monitoring", "status": "pending"},
     {"step": "4.4", "name": "backup", "status": "pending"},

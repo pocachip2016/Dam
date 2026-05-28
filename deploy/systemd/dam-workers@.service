@@ -1,0 +1,17 @@
+[Unit]
+Description=Dam Worker — %i
+After=dam.service
+Requires=dam.service
+
+[Service]
+Type=simple
+User=dam
+Group=dam
+WorkingDirectory=/opt/dam
+EnvironmentFile=/etc/dam/env.prod
+ExecStart=docker compose -f docker-compose.prod.yml exec -T dam_api python ingest/%i_worker.py
+Restart=on-failure
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target

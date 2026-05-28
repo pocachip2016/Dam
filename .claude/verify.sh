@@ -153,6 +153,15 @@ case "$STEP" in
   3.5)
     base="http://localhost:18000"
 
+    # Setup: editor 사용자 + 토큰 생성
+    psql_q "DELETE FROM users WHERE username='verify35_editor'" || true
+    EDITOR_TOKEN_35=$(echo "editor35pass" | PYTHONPATH="$REPO" "$REPO/.venv/bin/python" \
+      "$REPO/scripts/create_user.py" --username verify35_editor --role editor \
+      --password-stdin --issue-token 2>/dev/null | grep "Token:" | awk '{print $2}')
+    [[ -n "$EDITOR_TOKEN_35" ]] || fail "3.5: editor 토큰 발급 실패"
+
+    AUTH="-H \"Authorization: Bearer ${EDITOR_TOKEN_35}\""
+
     # Get a real asset_id from poc_sample
     aid=$(docker exec dam_postgres psql -U dam -d dam -tAc \
       "SELECT asset_id FROM asset_storage WHERE realm='poc_sample' LIMIT 1;" 2>/dev/null | tr -d ' ')
@@ -160,33 +169,38 @@ case "$STEP" in
 
     # 1. Add tag (POST 201)
     resp=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
-      -H "Content-Type: application/json" -H "X-User: testuser" \
+      -H "Content-Type: application/json" -H "Authorization: Bearer ${EDITOR_TOKEN_35}" \
       -d '{"name":"verify-tag-3.5","namespace":"user"}' \
       "${base}/assets/${aid}/tags")
     [[ "$resp" == "201" ]] || fail "3.5 tag POST → HTTP $resp"
 
     # Get tag_id
-    tag_id=$(curl -fsS "${base}/tags?prefix=verify-tag-3.5" 2>/dev/null | \
+    tag_id=$(curl -fsS -H "Authorization: Bearer ${EDITOR_TOKEN_35}" \
+      "${base}/tags?prefix=verify-tag-3.5" 2>/dev/null | \
       python3 -c "import json,sys; d=json.load(sys.stdin); print(d['tags'][0]['id'])" 2>/dev/null)
     [[ -n "$tag_id" ]] || fail "3.5 GET /tags prefix search returned nothing"
 
     # 2. Search by tag → result includes our asset
-    found=$(curl -fsS "${base}/search_text?q=&tag=verify-tag-3.5&limit=5" 2>/dev/null | \
+    found=$(curl -fsS -H "Authorization: Bearer ${EDITOR_TOKEN_35}" \
+      "${base}/search_text?q=&tag=verify-tag-3.5&limit=5" 2>/dev/null | \
       python3 -c "import json,sys; d=json.load(sys.stdin); print(any(r['asset_id']==${aid} for r in d['results']))" 2>/dev/null)
     [[ "$found" == "True" ]] || fail "3.5 tag search did not return tagged asset"
 
     # 3. Remove tag (DELETE 204)
     code=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE \
+      -H "Authorization: Bearer ${EDITOR_TOKEN_35}" \
       "${base}/assets/${aid}/tags/${tag_id}")
     [[ "$code" == "204" ]] || fail "3.5 tag DELETE → HTTP $code"
 
     # 4. Orphan cleanup: tag should be gone
-    cnt=$(curl -fsS "${base}/tags?prefix=verify-tag-3.5" 2>/dev/null | \
+    cnt=$(curl -fsS -H "Authorization: Bearer ${EDITOR_TOKEN_35}" \
+      "${base}/tags?prefix=verify-tag-3.5" 2>/dev/null | \
       python3 -c "import json,sys; d=json.load(sys.stdin); print(len(d['tags']))" 2>/dev/null)
     [[ "${cnt:-1}" -eq 0 ]] || fail "3.5 orphan tag not cleaned up"
 
     # 5. Collection: create + add assets + verify sort_order
-    coll_id=$(curl -fsS -X POST -H "Content-Type: application/json" -H "X-User: testuser" \
+    coll_id=$(curl -fsS -X POST \
+      -H "Content-Type: application/json" -H "Authorization: Bearer ${EDITOR_TOKEN_35}" \
       -d '{"name":"verify-coll-3.5"}' "${base}/collections" 2>/dev/null | \
       python3 -c "import json,sys; d=json.load(sys.stdin); print(d['id'])" 2>/dev/null)
     [[ -n "$coll_id" ]] || fail "3.5 collection POST failed"
@@ -194,21 +208,27 @@ case "$STEP" in
     # Add 3 assets
     aids=$(docker exec dam_postgres psql -U dam -d dam -tAc \
       "SELECT array_agg(asset_id) FROM (SELECT asset_id FROM asset_storage WHERE realm='poc_sample' LIMIT 3) t;" 2>/dev/null | tr -d ' {}')
-    curl -s -o /dev/null -X POST -H "Content-Type: application/json" \
+    curl -s -o /dev/null -X POST \
+      -H "Content-Type: application/json" -H "Authorization: Bearer ${EDITOR_TOKEN_35}" \
       -d "{\"asset_ids\":[${aids}]}" "${base}/collections/${coll_id}/assets"
 
     # Verify sort_order preserved
-    orders=$(curl -fsS "${base}/collections/${coll_id}/assets" 2>/dev/null | \
+    orders=$(curl -fsS -H "Authorization: Bearer ${EDITOR_TOKEN_35}" \
+      "${base}/collections/${coll_id}/assets" 2>/dev/null | \
       python3 -c "import json,sys; d=json.load(sys.stdin); print([a['sort_order'] for a in d['assets']])" 2>/dev/null)
     [[ "$orders" != "[]" ]] || fail "3.5 collection assets empty"
 
-    # Cleanup
-    curl -s -o /dev/null -X DELETE "${base}/collections/${coll_id}"
+    # Cleanup collection
+    curl -s -o /dev/null -X DELETE \
+      -H "Authorization: Bearer ${EDITOR_TOKEN_35}" \
+      "${base}/collections/${coll_id}"
 
-    # 6. Concurrent tagging (alice + bob same asset)
-    curl -s -o /dev/null -X POST -H "Content-Type: application/json" -H "X-User: alice" \
+    # 6. Concurrent tagging (same editor token, same asset — idempotency)
+    curl -s -o /dev/null -X POST -H "Content-Type: application/json" \
+      -H "Authorization: Bearer ${EDITOR_TOKEN_35}" \
       -d '{"name":"concurrent-test","namespace":"user"}' "${base}/assets/${aid}/tags"
-    curl -s -o /dev/null -X POST -H "Content-Type: application/json" -H "X-User: bob" \
+    curl -s -o /dev/null -X POST -H "Content-Type: application/json" \
+      -H "Authorization: Bearer ${EDITOR_TOKEN_35}" \
       -d '{"name":"concurrent-test","namespace":"user"}' "${base}/assets/${aid}/tags"
     cnt=$(docker exec dam_postgres psql -U dam -d dam -tAc \
       "SELECT COUNT(*) FROM asset_tags at JOIN tags t ON t.id=at.tag_id WHERE at.asset_id=${aid} AND t.name='concurrent-test';" 2>/dev/null | tr -d ' ')
@@ -217,7 +237,12 @@ case "$STEP" in
     # Cleanup concurrent test
     ctag=$(docker exec dam_postgres psql -U dam -d dam -tAc \
       "SELECT id FROM tags WHERE name='concurrent-test';" 2>/dev/null | tr -d ' ')
-    curl -s -o /dev/null -X DELETE "${base}/assets/${aid}/tags/${ctag}" 2>/dev/null
+    [[ -n "$ctag" ]] && curl -s -o /dev/null -X DELETE \
+      -H "Authorization: Bearer ${EDITOR_TOKEN_35}" \
+      "${base}/assets/${aid}/tags/${ctag}" 2>/dev/null || true
+
+    # Teardown: 사용자 삭제 (CASCADE → 토큰 삭제)
+    psql_q "DELETE FROM users WHERE username='verify35_editor'" || true
 
     pass "step 3.5 tags-collections (tag CRUD + orphan + collection sort_order + concurrent OK)"
     ;;
@@ -385,6 +410,159 @@ print(len(bad))" 2>/dev/null)
   "")
     echo "Usage: $0 <step-id>  (e.g. 1.1–1.7, 2.1–2.6, --skip 'reason')"
     exit 1
+    ;;
+
+  4.2.3)
+    # 0. rebuild container
+    docker compose -f "$REPO/docker-compose.dev.yml" up -d --build dam_api >/dev/null 2>&1
+    until curl -fsS http://localhost:18000/docs >/dev/null 2>&1; do sleep 1; done
+
+    # 1. X-User 잔존 금지
+    if grep -rn "x_user\|X-User" "$REPO/api/" --include="*.py" 2>/dev/null | grep -qv "static\|# "; then
+      fail "X-User placeholder 잔존: $(grep -rn 'x_user\|X-User' "$REPO/api/" --include='*.py' | grep -v 'static\|# ')"
+    fi
+
+    # 2. 시나리오용 사용자 + 토큰 생성
+    for u in verify_admin verify_editor verify_viewer; do psql_q "DELETE FROM users WHERE username='$u'" || true; done
+
+    ADMIN_TOKEN=$(echo "adminpass" | PYTHONPATH="$REPO" "$REPO/.venv/bin/python" \
+      "$REPO/scripts/create_user.py" --username verify_admin --role admin \
+      --password-stdin --issue-token 2>/dev/null | grep "Token:" | awk '{print $2}')
+    EDITOR_TOKEN=$(echo "editorpass" | PYTHONPATH="$REPO" "$REPO/.venv/bin/python" \
+      "$REPO/scripts/create_user.py" --username verify_editor --role editor \
+      --password-stdin --issue-token 2>/dev/null | grep "Token:" | awk '{print $2}')
+    VIEWER_TOKEN=$(echo "viewerpass" | PYTHONPATH="$REPO" "$REPO/.venv/bin/python" \
+      "$REPO/scripts/create_user.py" --username verify_viewer --role viewer \
+      --password-stdin --issue-token 2>/dev/null | grep "Token:" | awk '{print $2}')
+
+    [[ -n "$ADMIN_TOKEN" && -n "$EDITOR_TOKEN" && -n "$VIEWER_TOKEN" ]] \
+      || fail "token 발급 실패 (admin=$ADMIN_TOKEN editor=$EDITOR_TOKEN viewer=$VIEWER_TOKEN)"
+
+    BASE="http://localhost:18000"
+
+    # 3. anonymous → 401
+    code=$(curl -o /dev/null -s -w "%{http_code}" "${BASE}/search_text?q=test")
+    [[ "$code" == "401" ]] || fail "anonymous /search_text → $code (expected 401)"
+
+    # 4. bad token → 401
+    code=$(curl -o /dev/null -s -w "%{http_code}" -H "Authorization: Bearer invalid_token_xyz" "${BASE}/search_text?q=test")
+    [[ "$code" == "401" ]] || fail "bad token /search_text → $code (expected 401)"
+
+    # 5. viewer + GET /search_text → 200 (빈 q= 로 metadata path 사용, torch 불필요)
+    code=$(curl -o /dev/null -s -w "%{http_code}" -H "Authorization: Bearer ${VIEWER_TOKEN}" "${BASE}/search_text?q=&limit=1")
+    [[ "$code" == "200" ]] || fail "viewer /search_text → $code (expected 200)"
+
+    # 6. viewer + POST /assets tags → 403
+    aid=$(psql_q "SELECT asset_id FROM asset_storage WHERE realm='poc_sample' LIMIT 1" | tr -d ' ')
+    code=$(curl -o /dev/null -s -w "%{http_code}" -X POST \
+      -H "Authorization: Bearer ${VIEWER_TOKEN}" \
+      -H "Content-Type: application/json" \
+      -d '{"name":"verify-tag","namespace":"user"}' \
+      "${BASE}/assets/${aid}/tags")
+    [[ "$code" == "403" ]] || fail "viewer POST /tags → $code (expected 403)"
+
+    # 7. editor + POST /assets tags → 201
+    code=$(curl -o /dev/null -s -w "%{http_code}" -X POST \
+      -H "Authorization: Bearer ${EDITOR_TOKEN}" \
+      -H "Content-Type: application/json" \
+      -d '{"name":"verify-tag-423","namespace":"user"}' \
+      "${BASE}/assets/${aid}/tags")
+    [[ "$code" == "201" ]] || fail "editor POST /tags → $code (expected 201)"
+    # cleanup tag
+    tag_id=$(psql_q "SELECT id FROM tags WHERE name='verify-tag-423'" | tr -d ' ')
+    [[ -n "$tag_id" ]] && psql_q "DELETE FROM tags WHERE id='$tag_id'" || true
+
+    # 8. editor + /api/admin → 403
+    code=$(curl -o /dev/null -s -w "%{http_code}" -X POST \
+      -H "Authorization: Bearer ${EDITOR_TOKEN}" \
+      -H "Content-Type: application/json" \
+      -d '{"asset_id":1,"old_class":"draft","new_class":"content"}' \
+      "${BASE}/api/admin/classification/reclass")
+    [[ "$code" == "403" ]] || fail "editor /api/admin → $code (expected 403)"
+
+    # 9. admin + /api/mapping/stats → 200
+    code=$(curl -o /dev/null -s -w "%{http_code}" \
+      -H "Authorization: Bearer ${ADMIN_TOKEN}" \
+      "${BASE}/api/mapping/stats")
+    [[ "$code" == "200" ]] || fail "admin /api/mapping/stats → $code (expected 200)"
+
+    # 10. cleanup
+    for u in verify_admin verify_editor verify_viewer; do psql_q "DELETE FROM users WHERE username='$u'" || true; done
+
+    pass "step 4.2.3 wire-endpoints (anon=401 bad=401 viewer=200 viewer-post=403 editor-post=201 editor-admin=403 admin=200)"
+    ;;
+
+  4.2.2)
+    # 0. cleanup (이전 테스트 레지듀)
+    for user in verify_admin verify_editor verify_viewer; do
+      psql_q "DELETE FROM users WHERE username='$user'" || true
+    done
+
+    # 1. import 성공
+    PYTHONPATH="$REPO" "$REPO/.venv/bin/python" -c "
+from api.auth import hash_password, verify_password, issue_token, require_user, ROLE_LEVEL, router
+assert ROLE_LEVEL['viewer'] < ROLE_LEVEL['editor'] < ROLE_LEVEL['admin']
+print('imports OK')
+" || fail "api.auth import failed"
+
+    # 2. pytest 통과
+    PYTHONPATH="$REPO" "$REPO/.venv/bin/python" -m pytest \
+      "$REPO/tests/test_auth.py" -q --tb=short \
+      || fail "test_auth.py tests failed"
+
+    # 3. create_user.py로 3명 생성
+    echo "testpass1" | PYTHONPATH="$REPO" "$REPO/.venv/bin/python" \
+      "$REPO/scripts/create_user.py" --username verify_admin --role admin --password-stdin \
+      || fail "create_user verify_admin failed"
+
+    echo "testpass2" | PYTHONPATH="$REPO" "$REPO/.venv/bin/python" \
+      "$REPO/scripts/create_user.py" --username verify_editor --role editor --password-stdin \
+      || fail "create_user verify_editor failed"
+
+    echo "testpass3" | PYTHONPATH="$REPO" "$REPO/.venv/bin/python" \
+      "$REPO/scripts/create_user.py" --username verify_viewer --role viewer --password-stdin \
+      || fail "create_user verify_viewer failed"
+
+    # 4. password_hash 확인 (argon2 시작)
+    for user in verify_admin verify_editor verify_viewer; do
+      hash=$(psql_q "SELECT password_hash FROM users WHERE username='$user'")
+      [[ "$hash" == \$argon2* ]] || fail "user $user password_hash not argon2 (got: $hash)"
+    done
+
+    # 5. cleanup
+    for user in verify_admin verify_editor verify_viewer; do
+      psql_q "DELETE FROM users WHERE username='$user'" || true
+    done
+
+    pass "step 4.2.2 auth-module-and-cli (hash/token/role OK, 3 users seeded+cleaned)"
+    ;;
+
+  4.2.1)
+    # 1. 테이블 존재
+    for tbl in users api_tokens; do
+      psql_q "SELECT 1 FROM pg_tables WHERE tablename='$tbl'" | grep -q 1 \
+        || fail "table $tbl missing — 010_auth.sql 미적용"
+    done
+
+    # 2. role CHECK 위반 → ERROR 확인
+    err=$(docker exec dam_postgres psql -U dam -d dam -tAc \
+      "INSERT INTO users(username,password_hash,role) VALUES('_ck_bad','x','other')" 2>&1) || true
+    echo "$err" | grep -q "violates check constraint" \
+      || fail "role CHECK constraint not working (got: $err)"
+
+    # 3. password 평문 컬럼 없음 (컬럼명에 'password' 단독 금지)
+    plain=$(psql_q "SELECT column_name FROM information_schema.columns \
+      WHERE table_name='users' AND column_name='password'")
+    [[ -z "$plain" ]] || fail "plain 'password' column exists — use 'password_hash'"
+
+    # 4. token_hash UNIQUE 제약 존재
+    uniq=$(psql_q "SELECT COUNT(*) FROM pg_constraint c \
+      JOIN pg_class r ON r.oid=c.conrelid \
+      WHERE r.relname='api_tokens' AND c.contype='u' AND \
+      c.conname LIKE '%token_hash%'")
+    [[ "${uniq:-0}" -ge 1 ]] || fail "api_tokens.token_hash UNIQUE constraint missing"
+
+    pass "step 4.2.1 schema-and-migration (users + api_tokens OK)"
     ;;
 
   4.G.3)
@@ -651,6 +829,31 @@ print('import + logic OK')
     echo "$fk_out" | grep -q "violates" \
       || fail "FK constraint not working"
     pass "step M.0 mapping-schema (3 tables + seed OK)"
+    ;;
+
+  4.1)
+    branch=$(git -C "$REPO" rev-parse --abbrev-ref HEAD)
+    [[ "$branch" == "feature/ops-readiness" ]] \
+      || fail "branch=$branch (expected feature/ops-readiness)"
+    test -d "$REPO/deploy" \
+      || fail "deploy/ directory missing"
+    test -f "$REPO/deploy/systemd/dam.service" \
+      || fail "deploy/systemd/dam.service missing"
+    test -f "$REPO/deploy/systemd/dam-workers@.service" \
+      || fail "deploy/systemd/dam-workers@.service missing"
+    test -f "$REPO/deploy/.env.prod.template" \
+      || fail "deploy/.env.prod.template missing"
+    test -f "$REPO/deploy/Caddyfile.template" \
+      || fail "deploy/Caddyfile.template missing"
+    test -f "$REPO/deploy/crontab.template" \
+      || fail "deploy/crontab.template missing"
+    test -f "$REPO/docker-compose.dev.yml" \
+      || fail "docker-compose.dev.yml missing"
+    test ! -f "$REPO/docker-compose.yml" \
+      || fail "docker-compose.yml still exists (should have been git mv'd)"
+    test -f "$REPO/docker-compose.prod.yml" \
+      || fail "docker-compose.prod.yml missing"
+    pass "step 4.1 branch-and-scaffold"
     ;;
 
   poster-ingest-P.1)

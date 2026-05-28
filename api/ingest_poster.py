@@ -19,10 +19,14 @@ try:
 except ImportError:
     sys.exit("httpx 또는 psycopg 미설치")
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, HttpUrl
 
+from api.auth import User, require_user
+
 router = APIRouter(prefix="/api/ingest", tags=["ingest"])
+
+_admin = Depends(require_user("admin"))
 
 DB_DSN = os.environ.get("DAM_DSN", "postgresql://dam:dam@localhost:15432/dam")
 DAM_POSTER_ROOT = Path(
@@ -77,7 +81,7 @@ def _save_file(content_id: int, sha256: str, data: bytes) -> Path:
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @router.post("/poster", response_model=PosterIngestResponse)
-def ingest_poster(req: PosterIngestRequest):
+def ingest_poster(req: PosterIngestRequest, user: User = _admin):
     """
     mediaX에서 primary 포스터 지정 시 호출.
     image_id 기준 idempotent — 이미 처리된 image_id면 asset_id와 함께 즉시 반환.
@@ -228,7 +232,7 @@ def ingest_poster(req: PosterIngestRequest):
 
 
 @router.get("/poster/status/{image_id}", response_model=PosterIngestResponse)
-def poster_status(image_id: int):
+def poster_status(image_id: int, user: User = _admin):
     """image_id로 포스터 등록 상태 조회."""
     with _conn() as conn:
         with conn.cursor() as cur:

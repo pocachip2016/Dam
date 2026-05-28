@@ -20,10 +20,14 @@ try:
 except ImportError:
     sys.exit("psycopg 미설치")
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from api.auth import User, require_user
+
 router = APIRouter(prefix="/api/admin", tags=["admin"])
+
+_admin = Depends(require_user("admin"))
 
 DB_DSN = os.environ.get("DAM_DSN", "postgresql://dam:dam@localhost:15432/dam")
 
@@ -40,7 +44,7 @@ def _conn():
 # ── Classification ────────────────────────────────────────────────────────────
 
 @router.post("/classification/{asset_id}/{cls}/confirm")
-def confirm_classification(asset_id: int, cls: str):
+def confirm_classification(asset_id: int, cls: str, user: User = _admin):
     if cls not in _VALID_CLASSES:
         raise HTTPException(400, f"invalid class: {cls}")
     with _conn() as conn:
@@ -57,7 +61,7 @@ def confirm_classification(asset_id: int, cls: str):
 
 
 @router.post("/classification/{asset_id}/{cls}/reject")
-def reject_classification(asset_id: int, cls: str):
+def reject_classification(asset_id: int, cls: str, user: User = _admin):
     if cls not in _VALID_CLASSES:
         raise HTTPException(400, f"invalid class: {cls}")
     with _conn() as conn:
@@ -81,7 +85,7 @@ class ReclassBody(BaseModel):
 
 
 @router.post("/classification/reclass")
-def reclass(body: ReclassBody):
+def reclass(body: ReclassBody, user: User = _admin):
     if body.new_class not in _VALID_CLASSES:
         raise HTTPException(400, f"invalid new_class: {body.new_class}")
     with _conn() as conn:
@@ -113,7 +117,7 @@ def reclass(body: ReclassBody):
 # ── Content Mapping ───────────────────────────────────────────────────────────
 
 @router.post("/mapping/{asset_id}/{content_id}/confirm")
-def confirm_mapping(asset_id: int, content_id: int):
+def confirm_mapping(asset_id: int, content_id: int, user: User = _admin):
     with _conn() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -128,7 +132,7 @@ def confirm_mapping(asset_id: int, content_id: int):
 
 
 @router.post("/mapping/{asset_id}/{content_id}/reject")
-def reject_mapping(asset_id: int, content_id: int):
+def reject_mapping(asset_id: int, content_id: int, user: User = _admin):
     with _conn() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -149,7 +153,7 @@ class AddMappingBody(BaseModel):
 
 
 @router.post("/mapping/add")
-def add_mapping(body: AddMappingBody):
+def add_mapping(body: AddMappingBody, user: User = _admin):
     with _conn() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -178,7 +182,7 @@ class BulkClassifyBody(BaseModel):
 
 
 @router.post("/unclassified/bulk-classify")
-def bulk_classify(body: BulkClassifyBody):
+def bulk_classify(body: BulkClassifyBody, user: User = _admin):
     if body.cls not in _VALID_CLASSES:
         raise HTTPException(400, f"invalid class: {body.cls}")
     if not body.asset_ids:

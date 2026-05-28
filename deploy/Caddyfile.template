@@ -1,0 +1,16 @@
+# Dam Caddyfile — replace {DAM_DOMAIN} and {DAM_API_PORT}
+# Production: caddy runs inside docker-compose.prod.yml, proxies to dam_api
+
+{DAM_DOMAIN} {
+    reverse_proxy dam_api:8000
+
+    # Uncomment for Let's Encrypt staging during initial setup:
+    # tls {
+    #     ca https://acme-staging-v02.api.letsencrypt.org/directory
+    # }
+
+    log {
+        output file /var/log/caddy/dam_access.log
+        format json
+    }
+}
