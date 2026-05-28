@@ -3,8 +3,9 @@
 > **세션 재개 프롬프트**: "TODO.md 확인하고 `## Now`부터 이어서 진행해"
 
 ## Now (진행 중, 1~3개)
+- [ ] **4.2.4** ui-login — login.html + app.js + index.html 전환
 
-## Next (이번 마일스톤 — Phase 3 MVP 기능)
+## Next (이번 마일스톤 — Phase 4 ops-readiness)
 - [x] **3.1** archive-and-branch — `feature/mvp-features` 생성 (2026-05-06)
 - [x] **3.2** metadata-and-tokens — EXIF/IPTC/XMP + folder/filename tokens + year/role hint (2026-05-06)
 - [x] **3.3** hash-dedup — sha256 + duplicate edges + dedup-report (2026-05-06)
@@ -15,6 +16,15 @@
 
 ## Later (백로그 — Phase 4+)
 - [ ] Phase 4 운영 준비 (auth / monitoring / backup / deployment) — `plans/dev-ops-readiness/`
+  - [x] 4.1 branch-and-scaffold (2026-05-28) — feature/ops-readiness + deploy/ scaffold
+  - [x] 4.2.1 schema-and-migration (2026-05-28) — users + api_tokens table
+  - [x] 4.2.2 auth-module-and-cli (2026-05-28) — argon2, token, require_user, create_user.py
+  - [x] 4.2.3 wire-endpoints (2026-05-28) — all endpoints viewer/editor/admin gates, X-User removed
+  - [ ] 4.2.4 ui-login — login.html form + app.js helper + index.html redirect
+  - [ ] 4.3 monitoring — worker_runs table, /admin/workers API + dashboard
+  - [ ] 4.4 backup — backup_db.sh/backup_thumbs.sh, restore-procedure.md
+  - [ ] 4.5 deployment — docker-compose.prod.yml complete, systemd units, deployment.md
+  - [ ] 4.6 wrap — PRD/TODO/CLAUDE.md update, operations.md, main merge
 - [x] dev-asset-content-mapping M.0 — 006_content_mapping.sql 신설 (2026-05-09)
 - [x] dev-asset-content-mapping M.1 — 528건 UPSERT, cursor 증분 동기화 (2026-05-09)
 - [x] dev-asset-content-mapping M.2~M.6 — 분류·매핑·CLIP fallback·검색필터·어드민 UI 완료 (2026-05-10)
