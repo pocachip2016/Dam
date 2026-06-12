@@ -1,0 +1,18 @@
+[Unit]
+Description=Dam API Stack (docker compose)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=dam
+Group=dam
+WorkingDirectory=/opt/dam
+EnvironmentFile=/etc/dam/env.prod
+ExecStart=docker compose -f docker-compose.prod.yml up
+ExecStop=docker compose -f docker-compose.prod.yml down
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

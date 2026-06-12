@@ -16,9 +16,13 @@ try:
 except ImportError:
     sys.exit("psycopg 미설치")
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
+
+from api.auth import User, require_user
 
 router = APIRouter(prefix="/api/mapping", tags=["mapping"])
+
+_admin = Depends(require_user("admin"))
 
 DB_DSN = os.environ.get("DAM_DSN", "postgresql://dam:dam@localhost:15432/dam")
 
@@ -28,7 +32,7 @@ def _conn():
 
 
 @router.get("/stats")
-def mapping_stats():
+def mapping_stats(user: User = _admin):
     with _conn() as conn:
         with conn.cursor() as cur:
             # class 분포
@@ -79,7 +83,7 @@ def mapping_stats():
 
 
 @router.get("/by-content/{content_id}")
-def by_content(content_id: int):
+def by_content(content_id: int, user: User = _admin):
     with _conn() as conn:
         with conn.cursor() as cur:
             cur.execute("""
@@ -109,6 +113,7 @@ def by_class(
     status: str | None = Query(None),
     page: int = Query(1, ge=1),
     size: int = Query(50, ge=1, le=200),
+    user: User = _admin,
 ):
     if cls not in _VALID_CLASSES:
         raise HTTPException(400, f"invalid class: {cls}")
@@ -137,7 +142,7 @@ def by_class(
 
 
 @router.get("/asset/{asset_id}")
-def asset_detail(asset_id: int):
+def asset_detail(asset_id: int, user: User = _admin):
     with _conn() as conn:
         with conn.cursor() as cur:
             cur.execute(

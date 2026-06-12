@@ -25,12 +25,13 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
 try:
-    from fastapi import FastAPI, HTTPException, Query
+    from fastapi import Depends, FastAPI, HTTPException, Query
     from fastapi.responses import FileResponse, RedirectResponse
     from fastapi.staticfiles import StaticFiles
 except ImportError:
     sys.exit('FastAPI 미설치. 실행: pip install fastapi')
 
+from api.auth import User, require_user, router as auth_router
 from api.search_filters import build_filters
 from api.tags import router as tags_router
 from api.collections import router as collections_router
@@ -54,6 +55,7 @@ _static_dir = Path(__file__).parent / 'static'
 if _static_dir.exists():
     app.mount('/static', StaticFiles(directory=str(_static_dir)), name='static')
 
+app.include_router(auth_router)
 app.include_router(tags_router)
 app.include_router(collections_router)
 app.include_router(mapping_router)
@@ -143,6 +145,7 @@ def search(
     top:    Optional[str] = Query(None,  description='top_folder 필터'),
     limit:  int           = Query(50, ge=1, le=500),
     offset: int           = Query(0,  ge=0),
+    user:   User          = Depends(require_user('viewer')),
 ):
     filters = ['s.realm = %(realm)s']
     params: dict = {'realm': realm, 'limit': limit, 'offset': offset}
@@ -205,6 +208,7 @@ def search_text(
     content_id:   Optional[int]  = Query(None, description='콘텐츠 ID — 해당 콘텐츠 매핑 자산만'),
     top_folder:   Optional[str]  = Query(None, description='최상위 폴더 (디자이너/카테고리)'),
     hide_draft:   bool           = Query(True,  description='draft+composition 자산 숨김 (기본: true)'),
+    user:         User           = Depends(require_user('viewer')),
 ):
     filter_clauses, filter_params = build_filters({
         'ext': ext, 'folder': folder, 'role': role,
@@ -301,6 +305,7 @@ def filename_search(
     q:     str = Query(..., description='파일명 토큰 검색'),
     realm: str = Query('poc_sample'),
     limit: int = Query(20, ge=1, le=100),
+    user:  User = Depends(require_user('viewer')),
 ):
     token = q.strip().lower()
     if not token:
@@ -325,7 +330,7 @@ def filename_search(
 # GET /asset/<id>
 # ---------------------------------------------------------------------------
 @app.get('/asset/{asset_id}')
-def get_asset(asset_id: int):
+def get_asset(asset_id: int, user: User = Depends(require_user('viewer'))):
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute("""
@@ -370,6 +375,7 @@ def similar(
     model: str = Query('clip-vit-b32', description='clip-vit-b32 | cn-clip-vitb16'),
     limit: int = Query(20, ge=1, le=100),
     realm: str = Query('poc_sample'),
+    user:  User = Depends(require_user('viewer')),
 ):
     if model not in SUPPORTED_MODELS:
         raise HTTPException(400, f'model은 {SUPPORTED_MODELS} 중 하나여야 합니다')
@@ -407,7 +413,7 @@ def similar(
 # GET /thumb/<id>
 # ---------------------------------------------------------------------------
 @app.get('/thumb/{asset_id}')
-def thumb(asset_id: int):
+def thumb(asset_id: int, user: User = Depends(require_user('viewer'))):
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute("SELECT thumbnail_path FROM assets WHERE id = %s", (asset_id,))
@@ -425,7 +431,7 @@ def thumb(asset_id: int):
 # GET /stats  — realm별 집계 + 모델별 embedded 카운트
 # ---------------------------------------------------------------------------
 @app.get('/stats')
-def stats():
+def stats(user: User = Depends(require_user('viewer'))):
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute("""

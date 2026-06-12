@@ -1,19 +1,21 @@
 """Phase 3.5 Collections API
 
-GET    /collections?owner=          목록
-POST   /collections                 생성
-DELETE /collections/{id}            삭제
-POST   /collections/{id}/assets     자산 일괄 추가
-DELETE /collections/{id}/assets/{asset_id}  자산 제거
-GET    /collections/{id}/assets     자산 목록 (sort_order 보존)
+GET    /collections?owner=          목록 (viewer)
+POST   /collections                 생성 (editor)
+DELETE /collections/{id}            삭제 (editor)
+POST   /collections/{id}/assets     자산 일괄 추가 (editor)
+DELETE /collections/{id}/assets/{asset_id}  자산 제거 (editor)
+GET    /collections/{id}/assets     자산 목록 (viewer)
 """
 
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 import psycopg
 from psycopg.rows import dict_row
 import os
+
+from api.auth import User, require_user
 
 router = APIRouter()
 DSN = os.environ.get('DAM_DSN', 'postgresql://dam:dam@localhost:15432/dam')
@@ -33,7 +35,10 @@ class AssetAdd(BaseModel):
 
 
 @router.get('/collections')
-def list_collections(owner: Optional[str] = None):
+def list_collections(
+    owner: Optional[str] = None,
+    user: User = Depends(require_user('viewer')),
+):
     with get_conn() as conn:
         if owner:
             rows = conn.execute(
@@ -50,7 +55,7 @@ def list_collections(owner: Optional[str] = None):
 @router.post('/collections', status_code=201)
 def create_collection(
     body: CollectionCreate,
-    x_user: Optional[str] = Header(default='anonymous'),
+    user: User = Depends(require_user('editor')),
 ):
     with get_conn() as conn:
         row = conn.execute(
@@ -60,14 +65,17 @@ def create_collection(
             ON CONFLICT (created_by, name) DO UPDATE SET description = EXCLUDED.description
             RETURNING id, name, description, created_by, created_at
             """,
-            {'name': body.name, 'desc': body.description, 'user': x_user},
+            {'name': body.name, 'desc': body.description, 'user': user.username},
         ).fetchone()
         conn.commit()
     return row
 
 
 @router.delete('/collections/{collection_id}', status_code=204)
-def delete_collection(collection_id: int):
+def delete_collection(
+    collection_id: int,
+    user: User = Depends(require_user('editor')),
+):
     with get_conn() as conn:
         conn.execute("DELETE FROM collections WHERE id = %s", (collection_id,))
         conn.commit()
@@ -77,10 +85,9 @@ def delete_collection(collection_id: int):
 def add_assets(
     collection_id: int,
     body: AssetAdd,
-    x_user: Optional[str] = Header(default='anonymous'),
+    user: User = Depends(require_user('editor')),
 ):
     with get_conn() as conn:
-        # Get current max sort_order
         max_order = conn.execute(
             "SELECT COALESCE(MAX(sort_order), 0) AS max_order FROM collection_assets WHERE collection_id = %s",
             (collection_id,),
@@ -103,7 +110,11 @@ def add_assets(
 
 
 @router.delete('/collections/{collection_id}/assets/{asset_id}', status_code=204)
-def remove_asset(collection_id: int, asset_id: int):
+def remove_asset(
+    collection_id: int,
+    asset_id: int,
+    user: User = Depends(require_user('editor')),
+):
     with get_conn() as conn:
         conn.execute(
             "DELETE FROM collection_assets WHERE collection_id = %s AND asset_id = %s",
@@ -113,7 +124,10 @@ def remove_asset(collection_id: int, asset_id: int):
 
 
 @router.get('/collections/{collection_id}/assets')
-def get_collection_assets(collection_id: int):
+def get_collection_assets(
+    collection_id: int,
+    user: User = Depends(require_user('viewer')),
+):
     with get_conn() as conn:
         assets = conn.execute(
             """

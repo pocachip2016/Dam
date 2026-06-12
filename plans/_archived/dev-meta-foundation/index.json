@@ -1,0 +1,60 @@
+{
+  "project": "Dam",
+  "phase": "dev-meta-foundation",
+  "description": "외부 메타데이터(KOBIS) 연동 + CLIP 기반 자산 매핑 + 웹서치 캐시 + 영상 인제스트 파이프라인 구축. IPTV 벌크 데이터는 실데이터 확보 후 별도 phase. 목표: 80TB 자산에 구조화된 컨텐츠 메타데이터를 붙여 검색·분류 품질 향상.",
+  "decisions": {
+    "iptv_bulk": "보류 — 실데이터 확보 후 별도 plan",
+    "web_search": "내부 DB 우선, 캐시 적극 활용, 신규 컨텐츠는 무료 쿼터(Brave Search API 2000/월 또는 SerpAPI 100/월) 사용",
+    "dam_mapping_threshold": 0.85,
+    "mapping_threshold_adjustable": true,
+    "kobis_first": true,
+    "video_ingest": "mock 단일 파일 → 파이프라인 검증 후 실데이터 전환"
+  },
+  "steps": [
+    {
+      "step": "M.0",
+      "name": "schema-foundation",
+      "status": "pending"
+    },
+    {
+      "step": "M.1",
+      "name": "kobis-ingest",
+      "status": "pending"
+    },
+    {
+      "step": "M.2",
+      "name": "asset-mapping",
+      "status": "pending"
+    },
+    {
+      "step": "M.3",
+      "name": "web-search-cache",
+      "status": "pending"
+    },
+    {
+      "step": "M.4",
+      "name": "video-mock-ingest",
+      "status": "pending"
+    },
+    {
+      "step": "M.5",
+      "name": "meta-search-api",
+      "status": "pending"
+    },
+    {
+      "step": "M.6",
+      "name": "mapping-admin",
+      "status": "pending"
+    },
+    {
+      "step": "M.7",
+      "name": "kobis-expand",
+      "status": "pending"
+    },
+    {
+      "step": "M.8",
+      "name": "wrap",
+      "status": "pending"
+    }
+  ]
+}

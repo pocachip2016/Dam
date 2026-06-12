@@ -1,0 +1,11 @@
+# Dam Production Stack — placeholder, completed in Step 4.5
+# See deploy/.env.prod.template for required env vars.
+
+version: "3.9"
+
+# TODO (Step 4.5): fill services — postgres, redis, dam-api, caddy
+# Requirements:
+#   - all services: restart: unless-stopped
+#   - only caddy exposed externally (127.0.0.1 bind)
+#   - dam-api: uvicorn --workers 4 (no --reload)
+#   - postgres: named volume + pg_isready healthcheck
