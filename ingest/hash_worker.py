@@ -50,6 +50,7 @@ LOCAL_PREFIX = os.environ.get('DAM_LOCAL_PREFIX',  '/mnt/designfs')
 WORKERS      = int(os.environ.get('DAM_WORKERS',   '4'))
 BATCH_SIZE   = int(os.environ.get('DAM_BATCH_SIZE', '500'))
 TOP_FOLDER   = os.environ.get('DAM_TOP_FOLDER',   '')
+DAM_REALM    = os.environ.get('DAM_REALM',        '')
 
 CHUNK_BYTES = 4 * 1024 * 1024  # 4 MB
 
@@ -82,8 +83,9 @@ def sha256_file(local_path: str):
 
 def fetch_batch(conn):
     """미해시 파일 배치 반환: [(asset_id, local_path), ...]"""
-    top_cond = "AND s.top_folder = %(top)s" if TOP_FOLDER else ""
-    params = {'limit': BATCH_SIZE, 'top': TOP_FOLDER or None}
+    top_cond   = "AND s.top_folder = %(top)s" if TOP_FOLDER else ""
+    realm_cond = "AND s.realm = %(realm)s"    if DAM_REALM  else ""
+    params = {'limit': BATCH_SIZE, 'top': TOP_FOLDER or None, 'realm': DAM_REALM or None}
     with conn.cursor() as cur:
         cur.execute(f"""
             SELECT a.id, s.physical_path
@@ -91,6 +93,7 @@ def fetch_batch(conn):
             JOIN   asset_storage s ON s.asset_id = a.id
             WHERE  a.asset_type = 'source'
               AND  a.sha256 IS NULL
+              {realm_cond}
               {top_cond}
             ORDER BY a.id
             LIMIT %(limit)s

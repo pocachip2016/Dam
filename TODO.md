@@ -4,6 +4,16 @@
 
 ## Now (진행 중, 1~3개)
 - [ ] **4.2.4** ui-login — login.html + app.js + index.html 전환
+- [x] **nfs-poc.1** branch-and-scaffold — feature/nfs-poc + plans/dev-nfs-poc/index.json (2026-06-29)
+- [x] **nfs-poc.2** dual-mount — DESIGNFS(ro) + DESIGNFS1(rw) drvfs 마운트 (2026-06-29)
+- [x] **nfs-poc.3** realm-param — 3개 워커 DAM_REALM env화 (2026-06-29)
+- [x] **nfs-poc.4** source-analyze — 확장자별 분석 + 제외목록 확정 (2026-06-29)
+- [ ] **nfs-poc.5** filtered-copy — robocopy DESIGNFS→DESIGNFS1 (psd·psb·zip·영상 제외)
+- [ ] **nfs-poc.6** scan-ingest — realm=designfs1_mirror DB 적재
+- [ ] **nfs-poc.7** hash-dedup — sha256 + duplicate_of edges
+- [ ] **nfs-poc.8** thumbnails — thumbnail_worker designfs1_mirror
+- [ ] **nfs-poc.9** clip-embed — clip_worker designfs1_mirror
+- [ ] **nfs-poc.10** search-validate-adr-wrap — end-to-end 검증 + ADR + 결과 문서
 
 ## Next (이번 마일스톤 — Phase 4 ops-readiness)
 - [x] **3.1** archive-and-branch — `feature/mvp-features` 생성 (2026-05-06)

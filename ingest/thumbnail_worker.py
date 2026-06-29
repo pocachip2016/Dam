@@ -37,7 +37,7 @@ except ImportError:
 
 DB_DSN    = os.environ.get('DAM_DSN',    'postgresql://dam:dam@localhost:15432/dam')
 THUMB_DIR = os.environ.get('THUMB_DIR',  '/home/pocachip/dam_data/thumbnails')
-REALM     = 'poc_sample'
+REALM     = os.environ.get('DAM_REALM', 'poc_sample')
 THUMB_MAX = 512          # 장축 최대 픽셀
 WORKERS   = int(os.environ.get('WORKERS', '2'))
 IMAGE_EXTS = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.tiff', '.tif'}

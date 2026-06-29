@@ -402,6 +402,63 @@ print(len(bad))" 2>/dev/null)
     pass "step 3.6 ocr-pipeline (done=${ocr_pct}% text=${text_pct}% search OK idx OK)"
     ;;
 
+  nfs-poc.1)
+    branch=$(git -C "$REPO" rev-parse --abbrev-ref HEAD)
+    [[ "$branch" == "feature/nfs-poc" ]] \
+      || fail "branch=$branch (expected feature/nfs-poc)"
+    test -f "$REPO/plans/dev-nfs-poc/index.json" \
+      || fail "plans/dev-nfs-poc/index.json missing"
+    python3 -c "import json; d=json.load(open('$REPO/plans/dev-nfs-poc/index.json')); assert len(d['steps'])==10" \
+      || fail "index.json steps count != 10"
+    grep -q "nfs-poc.1" "$REPO/TODO.md" \
+      || fail "TODO.md does not list nfs-poc.1"
+    pass "step nfs-poc.1 branch-and-scaffold"
+    ;;
+
+  nfs-poc.4)
+    DOC="$REPO/docs/nfs-poc-analysis.md"
+    test -f "$DOC" || fail "docs/nfs-poc-analysis.md 없음"
+    grep -qiE '확장자|\.jpg|\.psd' "$DOC" || fail "확장자 표 없음"
+    grep -qiE '제외|exclude' "$DOC"       || fail "제외목록 없음"
+    grep -qiE '복사 대상|예상|copy' "$DOC" || fail "예상 총계 없음"
+    pass "step nfs-poc.4 source-analyze"
+    ;;
+
+  nfs-poc.3)
+    grep -q "DAM_REALM" "$REPO/ingest/ingest_local.py" \
+      || fail "ingest_local.py: DAM_REALM 없음"
+    grep -q "DAM_REALM" "$REPO/ingest/thumbnail_worker.py" \
+      || fail "thumbnail_worker.py: DAM_REALM 없음"
+    grep -q "DAM_REALM" "$REPO/ingest/hash_worker.py" \
+      || fail "hash_worker.py: DAM_REALM 없음"
+    python3 -m py_compile "$REPO/ingest/ingest_local.py" "$REPO/ingest/thumbnail_worker.py" "$REPO/ingest/hash_worker.py" \
+      || fail "문법 오류 (py_compile)"
+    pass "step nfs-poc.3 realm-param (3개 워커 DAM_REALM env화)"
+    ;;
+
+  nfs-poc.2)
+    # 1. 마운트 포인트 존재
+    mountpoint -q /mnt/designfs  || fail "/mnt/designfs 가 마운트되지 않음"
+    mountpoint -q /mnt/designfs1 || fail "/mnt/designfs1 가 마운트되지 않음"
+    # 2. 소스 폴더 readable
+    SRC="/mnt/designfs/디자인파트/11.NEXT_UI_2022_10월오픈"
+    test -d "$SRC" || fail "DESIGNFS 소스 폴더 접근 불가: $SRC"
+    # 3. DESIGNFS1 쓰기 가능
+    TMP="/mnt/designfs1/.dam_write_test_$$"
+    touch "$TMP" 2>/dev/null && rm -f "$TMP" \
+      || fail "DESIGNFS1 쓰기 불가"
+    # 4. DESIGNFS 쓰기 불가 (ro 보호)
+    if touch /mnt/designfs/.dam_write_test 2>/dev/null; then
+      rm -f /mnt/designfs/.dam_write_test
+      fail "DESIGNFS 가 쓰기 가능! ro 옵션 확인 필요"
+    fi
+    # 5. DESIGNFS1 여유 공간 ≥ 80 GB
+    avail_kb=$(df /mnt/designfs1 | awk 'NR==2{print $4}')
+    [[ "${avail_kb:-0}" -ge 83886080 ]] \
+      || fail "DESIGNFS1 여유공간 부족: ${avail_kb}KB < 80GB"
+    pass "step nfs-poc.2 dual-mount (DESIGNFS=ro, DESIGNFS1=rw)"
+    ;;
+
   --skip)
     reason="${2:-no reason given}"
     echo "SKIP: $reason"

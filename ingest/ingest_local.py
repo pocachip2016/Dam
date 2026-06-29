@@ -25,7 +25,7 @@ except ImportError:
 
 POC_ROOT = os.environ.get('POC_ROOT',  '/mnt/d/dam_analysis/poc_sample')
 DB_DSN   = os.environ.get('DAM_DSN',   'postgresql://dam:dam@localhost:15432/dam')
-REALM    = 'poc_sample'
+REALM    = os.environ.get('DAM_REALM', 'poc_sample')
 BATCH    = 5000
 
 SKIP_PREFIXES = ('._', '~$', '_')  # macOS 리소스포크, Office 임시, robocopy 로그 등
