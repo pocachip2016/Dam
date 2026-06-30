@@ -5,7 +5,7 @@
     {"step": "4.1", "name": "branch-and-scaffold", "status": "completed", "summary": "feature/ops-readiness 브랜치 + deploy/ 스켈레톤 5파일 + compose dev/prod 분리", "completed_at": "2026-05-28T00:00:00+09:00"},
     {"step": "4.2", "name": "auth", "status": "pending"},
     {"step": "4.3", "name": "monitoring", "status": "completed", "summary": "worker_runs 테이블 + RunTracker context manager + /admin/workers API(admin role) + /health liveness endpoint + admin.html 대시보드 UI — 4개 테스트 통과", "completed_at": "2026-06-30T15:00:00+09:00"},
-    {"step": "4.4", "name": "backup", "status": "pending"},
+    {"step": "4.4", "name": "backup", "status": "completed", "summary": "backup_thumbs.sh(썸네일 rsync) + restore-procedure.md(4섹션) + verify retention/복원리허설 통과", "completed_at": "2026-06-30T15:30:00+09:00"},
     {"step": "4.5", "name": "deployment", "status": "pending"},
     {"step": "4.6", "name": "wrap", "status": "pending"}
   ]

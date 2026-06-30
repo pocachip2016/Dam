@@ -4,7 +4,7 @@
 
 ## Now (진행 중, 1~3개)
 - [ ] **4.2.4** ui-login — login.html + app.js + index.html 전환
-- [ ] **4.4** backup — backup_db.sh, backup_thumbs.sh, restore-procedure.md
+- [ ] **4.5** deployment — docker-compose.prod.yml, systemd units, deployment.md
 
 ## Next (이번 마일스톤 — Phase 4 ops-readiness)
 - [x] **3.1** archive-and-branch — `feature/mvp-features` 생성 (2026-05-06)
@@ -23,7 +23,7 @@
   - [x] 4.2.3 wire-endpoints (2026-05-28) — all endpoints viewer/editor/admin gates, X-User removed
   - [ ] 4.2.4 ui-login — login.html form + app.js helper + index.html redirect
   - [x] 4.3 monitoring — worker_runs table, /admin/workers API + dashboard
-  - [ ] 4.4 backup — backup_db.sh/backup_thumbs.sh, restore-procedure.md
+  - [x] 4.4 backup — backup_db.sh/backup_thumbs.sh, restore-procedure.md
   - [ ] 4.5 deployment — docker-compose.prod.yml complete, systemd units, deployment.md
   - [ ] 4.6 wrap — PRD/TODO/CLAUDE.md update, operations.md, main merge
 - [x] dev-asset-content-mapping M.0 — 006_content_mapping.sql 신설 (2026-05-09)
@@ -34,6 +34,7 @@
 - [ ] inotify 증분 인덱싱 (Phase 5 후)
 
 ## Done (최근 5개만)
+- [x] Step 4.4 backup — backup_thumbs.sh + restore-procedure.md (2026-06-30)
 - [x] Step 4.3 monitoring — worker_runs + RunTracker + /admin/workers + /health + admin.html (2026-06-30)
 - [x] Step 4.G db-init-guard — entrypoint guard + smoke-test A/B/C + db-recovery.md (2026-05-08)
 - [x] Step 3.7 wrap — Phase 3 docs 갱신, feature/mvp-features → main 머지 (2026-05-08)

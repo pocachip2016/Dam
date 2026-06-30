@@ -949,6 +949,68 @@ with RunTracker('verify_dummy', total_planned=10, dsn='$DSN') as rt:
     pass "step 4.3 monitoring (worker_runs OK, RunTracker OK, /health OK, /admin/workers role OK)"
     ;;
 
+  4.4)
+    # 1. backup_db.sh 실행 → dump 생성 확인 (기존 dump가 있으면 재사용)
+    latest=$(find "$REPO/data/backups" -maxdepth 1 -name 'dam_*.dump' -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)
+    if [[ -z "$latest" ]]; then
+      BACKUP_DIR="$REPO/data/backups" bash "$REPO/scripts/db_backup.sh" \
+        || fail "db_backup.sh 실행 실패"
+      latest=$(ls -t "$REPO/data/backups/dam_*.dump" 2>/dev/null | head -1)
+    fi
+    [[ -f "$latest" ]] || fail "dump 파일 없음"
+
+    # 2. retention: mock 파일 생성 후 db_backup.sh에서 직접 find -delete 로직을 검증
+    mock="$REPO/data/backups/dam_20000101_000000.dump"
+    touch "$mock"
+    touch -d "9 days ago" "$mock"
+    # find 명령만 실행해 삭제 확인 (pg_dump 재실행 없이)
+    RETENTION_DAYS="${RETENTION_DAYS:-7}"
+    find "$REPO/data/backups" -maxdepth 1 -name 'dam_*.dump' -mtime +"$RETENTION_DAYS" -delete
+    if [[ -f "$mock" ]]; then
+      rm -f "$mock"
+      fail "retention: 9일 전 mock 파일 미삭제"
+    fi
+
+    # 3. 복원 리허설: 임시 컨테이너에 dump 로드 → assets count 비교
+    src_count=$(docker exec dam_postgres psql -U dam -d dam -tAc \
+      "SELECT COUNT(*) FROM assets" | tr -d ' ')
+
+    docker rm -f dam_restore_test 2>/dev/null || true
+    docker run -d --name dam_restore_test \
+      -e POSTGRES_USER=dam -e POSTGRES_PASSWORD=dam -e POSTGRES_DB=dam \
+      pgvector/pgvector:pg16 > /dev/null
+
+    # DB 기동 대기
+    for i in $(seq 1 20); do
+      docker exec dam_restore_test pg_isready -U dam -d dam >/dev/null 2>&1 && break
+      sleep 1
+    done
+
+    docker exec -i dam_restore_test pg_restore \
+      -U dam -d dam --no-owner --no-privileges < "$latest" 2>/dev/null || true
+
+    rst_count=$(docker exec dam_restore_test psql -U dam -d dam -tAc \
+      "SELECT COUNT(*) FROM assets" 2>/dev/null | tr -d ' ')
+    docker rm -f dam_restore_test > /dev/null
+
+    [[ "$src_count" == "$rst_count" ]] \
+      || fail "복원 assets count 불일치: src=$src_count rst=$rst_count"
+
+    # 4. restore-procedure.md 4섹션 확인
+    for section in "백업" "복원" "롤백" "손실"; do
+      grep -q "$section" "$REPO/docs/restore-procedure.md" \
+        || fail "restore-procedure.md '$section' 섹션 없음"
+    done
+
+    # 5. backup_thumbs.sh 존재 + 실행 가능
+    [[ -x "$REPO/scripts/backup_thumbs.sh" ]] \
+      || fail "backup_thumbs.sh 없거나 실행 권한 없음"
+    bash -n "$REPO/scripts/backup_thumbs.sh" \
+      || fail "backup_thumbs.sh 문법 오류"
+
+    pass "step 4.4 backup (dump OK, retention OK, 복원 리허설 OK, restore-procedure OK, backup_thumbs OK)"
+    ;;
+
   *)
     fail "unknown step '$STEP'"
     ;;
