@@ -5,7 +5,7 @@
 ## Now (진행 중, 1~3개)
 - [ ] **4.2.4** ui-login — login.html + app.js + index.html 전환
 - [ ] **4.5** deployment — docker-compose.prod.yml, systemd units, deployment.md
-- [ ] **FE 개선 P0** — apps/dam 스캐폴드 (사이드바+인증+CORS) in mediaX-CMS · `plans/fe-p0/`
+- [x] **FE 개선 P0** — apps/dam 스캐폴드 (사이드바+인증+CORS) in mediaX-CMS · `plans/fe-p0/` (2026-06-30)
 
 ## Next (이번 마일스톤 — Phase 4 ops-readiness)
 - [x] **3.1** archive-and-branch — `feature/mvp-features` 생성 (2026-05-06)
