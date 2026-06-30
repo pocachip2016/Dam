@@ -1,0 +1,13 @@
+{
+  "project": "Dam",
+  "task": "fe-p1-search",
+  "title": "DAM FE P1 — 에셋 검색 페이지",
+  "branch": "feature/dam-fe-p0",
+  "steps": [
+    {"id": "P1.1", "name": "dam-types + dam-search", "status": "completed", "summary": "dam-types.ts + dam-search.ts — Asset/Filters 타입 + searchAssets/getAsset/getSimilar/thumbUrl 함수", "completed_at": "2026-06-30T00:00:00+09:00"},
+    {"id": "P1.2", "name": "정적 레이아웃 (select 추가 + 컴포넌트 골격)", "status": "completed", "summary": "select 컴포넌트 추가 + SearchToolbar/FilterPanel/AssetCard/ResultGrid 골격 (반응형 2~6col 그리드)", "completed_at": "2026-06-30T00:00:00+09:00"},
+    {"id": "P1.3", "name": "데이터 와이어링 + 상태 관리", "status": "completed", "summary": "searchAssets 연결 + 로딩/에러/더보기(offset) + 모드 분기(시맨틱/파일명) + searched 플래그로 초기 EmptyState 방지", "completed_at": "2026-06-30T00:00:00+09:00"},
+    {"id": "P1.4", "name": "상세 Sheet (asset + similar)", "status": "completed", "summary": "AssetDetailSheet — 원본 썸네일+메타+유사이미지 5열 그리드, 유사 카드 클릭 재조회", "completed_at": "2026-06-30T00:00:00+09:00"},
+    {"id": "P1.5", "name": "URL 동기화 + 마무리", "status": "completed", "summary": "useSearchParams+useRouter URL 동기화, 마운트 시 파라미터 복원 자동검색, Suspense 래퍼", "completed_at": "2026-06-30T00:00:00+09:00"}
+  ]
+}

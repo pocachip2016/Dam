@@ -1067,6 +1067,54 @@ with RunTracker('verify_dummy', total_planned=10, dsn='$DSN') as rt:
     pass "step P0.3 layout-shell (tsc 0 errors)"
     ;;
 
+  P1.5)
+    dam_root="/home/ktalpha/Work/mediaX/mediaX-CMS/apps/dam"
+    grep -q "useSearchParams" "$dam_root/app/(main)/search/page.tsx"  || fail "useSearchParams 없음"
+    grep -q "useRouter"       "$dam_root/app/(main)/search/page.tsx"  || fail "useRouter 없음"
+    grep -q "Suspense"        "$dam_root/app/(main)/search/page.tsx"  || fail "Suspense 래퍼 없음"
+    grep -q "router.replace"  "$dam_root/app/(main)/search/page.tsx"  || fail "router.replace 없음"
+    cd "$dam_root" && npx tsc --noEmit 2>&1 | grep -E "error TS" && fail "tsc errors found" || true
+    pass "step P1.5 URL 동기화 + Suspense 래퍼 (tsc 0 errors)"
+    ;;
+
+  P1.4)
+    dam_root="/home/ktalpha/Work/mediaX/mediaX-CMS/apps/dam"
+    test -f "$dam_root/components/search/AssetDetailSheet.tsx" || fail "AssetDetailSheet.tsx missing"
+    grep -q "AssetDetailSheet" "$dam_root/app/(main)/search/page.tsx" || fail "AssetDetailSheet 미연결"
+    grep -q "onSelectSimilar" "$dam_root/components/search/AssetDetailSheet.tsx" || fail "onSelectSimilar 없음"
+    cd "$dam_root" && npx tsc --noEmit 2>&1 | grep -E "error TS" && fail "tsc errors found" || true
+    pass "step P1.4 상세 Sheet — asset+similar 패널 (tsc 0 errors)"
+    ;;
+
+  P1.3)
+    dam_root="/home/ktalpha/Work/mediaX/mediaX-CMS/apps/dam"
+    grep -q "searchAssets" "$dam_root/app/(main)/search/page.tsx" || fail "searchAssets 미연결"
+    grep -q "handleLoadMore" "$dam_root/app/(main)/search/page.tsx" || fail "handleLoadMore 미구현"
+    grep -q "searched" "$dam_root/app/(main)/search/page.tsx" || fail "searched 플래그 없음"
+    cd "$dam_root" && npx tsc --noEmit 2>&1 | grep -E "error TS" && fail "tsc errors found" || true
+    pass "step P1.3 데이터 와이어링 + 상태 관리 (tsc 0 errors)"
+    ;;
+
+  P1.2)
+    dam_root="/home/ktalpha/Work/mediaX/mediaX-CMS/apps/dam"
+    ui_root="/home/ktalpha/Work/mediaX/mediaX-CMS/packages/ui"
+    test -f "$ui_root/src/components/select.tsx"          || fail "select.tsx missing in packages/ui"
+    test -f "$dam_root/components/search/SearchToolbar.tsx" || fail "SearchToolbar.tsx missing"
+    test -f "$dam_root/components/search/FilterPanel.tsx"   || fail "FilterPanel.tsx missing"
+    test -f "$dam_root/components/search/AssetCard.tsx"     || fail "AssetCard.tsx missing"
+    test -f "$dam_root/components/search/ResultGrid.tsx"    || fail "ResultGrid.tsx missing"
+    cd "$dam_root" && npx tsc --noEmit 2>&1 | grep -E "error TS" && fail "tsc errors found" || true
+    pass "step P1.2 정적 레이아웃 + select 컴포넌트 (tsc 0 errors)"
+    ;;
+
+  P1.1)
+    dam_root="/home/ktalpha/Work/mediaX/mediaX-CMS/apps/dam"
+    test -f "$dam_root/lib/dam-types.ts"  || fail "dam-types.ts missing"
+    test -f "$dam_root/lib/dam-search.ts" || fail "dam-search.ts missing"
+    cd "$dam_root" && npx tsc --noEmit 2>&1 | grep -E "error TS" && fail "tsc errors found" || true
+    pass "step P1.1 dam-types + dam-search (tsc 0 errors)"
+    ;;
+
   P0.2)
     # apps/dam 패키지 설정 (5파일)
     dam_root="/home/ktalpha/Work/mediaX/mediaX-CMS/apps/dam"

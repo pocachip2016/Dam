@@ -5,7 +5,6 @@
 ## Now (진행 중, 1~3개)
 - [ ] **4.2.4** ui-login — login.html + app.js + index.html 전환
 - [ ] **4.5** deployment — docker-compose.prod.yml, systemd units, deployment.md
-- [x] **FE 개선 P0** — apps/dam 스캐폴드 (사이드바+인증+CORS) in mediaX-CMS · `plans/fe-p0/` (2026-06-30)
 
 ## Next (이번 마일스톤 — Phase 4 ops-readiness)
 - [x] **3.1** archive-and-branch — `feature/mvp-features` 생성 (2026-05-06)
@@ -35,6 +34,8 @@
 - [ ] inotify 증분 인덱싱 (Phase 5 후)
 
 ## Done (최근 5개만)
+- [x] **FE P1 에셋 검색** — SearchToolbar/FilterPanel/ResultGrid/AssetDetailSheet + URL sync · `plans/fe-p1-search/` (2026-06-30)
+- [x] **FE 개선 P0** — apps/dam 스캐폴드 (사이드바+인증+CORS) in mediaX-CMS · `plans/fe-p0/` (2026-06-30)
 - [x] Step 4.4 backup — backup_thumbs.sh + restore-procedure.md (2026-06-30)
 - [x] Step 4.3 monitoring — worker_runs + RunTracker + /admin/workers + /health + admin.html (2026-06-30)
 - [x] Step 4.G db-init-guard — entrypoint guard + smoke-test A/B/C + db-recovery.md (2026-05-08)
