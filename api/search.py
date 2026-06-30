@@ -145,6 +145,7 @@ def search(
     ext:    Optional[str] = Query(None,  description='확장자 필터, 예: .jpg'),
     realm:  str           = Query('poc_sample'),
     top:    Optional[str] = Query(None,  description='top_folder 필터'),
+    sub:    Optional[str] = Query(None,  description='sub_folder 필터'),
     limit:  int           = Query(50, ge=1, le=500),
     offset: int           = Query(0,  ge=0),
     user:   User          = Depends(require_user('viewer')),
@@ -161,6 +162,9 @@ def search(
     if top:
         filters.append("s.top_folder = %(top)s")
         params['top'] = top
+    if sub:
+        filters.append("s.sub_folder = %(sub)s")
+        params['sub'] = sub
 
     where = ' AND '.join(filters)
     sql = f"""
@@ -427,6 +431,53 @@ def thumb(asset_id: int, user: User = Depends(require_user('viewer'))):
     if not os.path.isfile(path):
         raise HTTPException(404, f'썸네일 파일 없음: {path}')
     return FileResponse(path, media_type='image/jpeg')
+
+
+# ---------------------------------------------------------------------------
+# GET /folders  — folder tree (top_folder -> sub_folder)
+# ---------------------------------------------------------------------------
+_folders_user = Depends(require_user('viewer'))
+
+@app.get('/folders')
+def list_folders(
+    realm: str = Query('poc_sample'),
+    user:  User = _folders_user,
+):
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT s.top_folder, s.sub_folder, COUNT(*) AS count
+                FROM asset_storage s
+                JOIN assets a ON a.id = s.asset_id
+                WHERE s.realm = %(realm)s AND s.top_folder IS NOT NULL
+                GROUP BY s.top_folder, s.sub_folder
+                ORDER BY s.top_folder, s.sub_folder
+            """, {'realm': realm})
+            rows = cur.fetchall()
+
+    nodes_dict = {}
+    for row in rows:
+        top = row['top_folder']
+        sub = row['sub_folder']
+        count = row['count']
+
+        if top not in nodes_dict:
+            nodes_dict[top] = {'name': top, 'count': 0, 'children': {}}
+
+        if sub:
+            if sub not in nodes_dict[top]['children']:
+                nodes_dict[top]['children'][sub] = {'name': sub, 'count': 0}
+            nodes_dict[top]['children'][sub]['count'] += count
+            nodes_dict[top]['count'] += count
+        else:
+            nodes_dict[top]['count'] += count
+
+    nodes = []
+    for top_node in sorted(nodes_dict.values(), key=lambda x: x['name']):
+        top_node['children'] = list(sorted(top_node['children'].values(), key=lambda x: x['name']))
+        nodes.append(top_node)
+
+    return {'realm': realm, 'nodes': nodes}
 
 
 # ---------------------------------------------------------------------------
