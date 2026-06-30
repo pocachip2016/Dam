@@ -1011,6 +1011,79 @@ with RunTracker('verify_dummy', total_planned=10, dsn='$DSN') as rt:
     pass "step 4.4 backup (dump OK, retention OK, 복원 리허설 OK, restore-procedure OK, backup_thumbs OK)"
     ;;
 
+  P0.1)
+    # CORS + /thumb public
+    health=$(curl -s http://localhost:18000/health)
+    [[ "$health" == *"ok"* ]] || fail "/health not responding"
+
+    cors_header=$(curl -s -i http://localhost:18000/thumb/1 -H "Origin: http://localhost:3001" 2>&1 | grep -i "access-control-allow-origin")
+    [[ -n "$cors_header" ]] || fail "CORS header missing"
+
+    thumb_status=$(curl -s -w '%{http_code}' http://localhost:18000/thumb/1 -o /dev/null)
+    [[ "$thumb_status" != "401" ]] || fail "/thumb still requires auth (401)"
+
+    pass "step P0.1 CORS + /thumb public"
+    ;;
+
+  P0.5)
+    dam_root="/home/ktalpha/Work/mediaX/mediaX-CMS/apps/dam"
+
+    cd "$dam_root" && npx tsc --noEmit 2>&1 | grep -E "error TS" && fail "tsc errors" || true
+
+    health=$(curl -s http://localhost:18000/health)
+    [[ "$health" == *"ok"* ]] || fail "BE /health not OK"
+
+    cors=$(curl -s -i http://localhost:18000/thumb/1 -H "Origin: http://localhost:3001" 2>&1 | grep -i "access-control-allow-origin")
+    [[ -n "$cors" ]] || fail "CORS header missing"
+
+    thumb_status=$(curl -s -w '%{http_code}' http://localhost:18000/thumb/1 -o /dev/null)
+    [[ "$thumb_status" != "401" ]] || fail "/thumb returned 401"
+
+    pass "step P0.5 smoke (tsc OK + health OK + CORS OK + /thumb non-401)"
+    ;;
+
+  P0.4)
+    dam_root="/home/ktalpha/Work/mediaX/mediaX-CMS/apps/dam"
+
+    test -f "$dam_root/lib/dam-api.ts" || fail "dam-api.ts missing"
+    test -f "$dam_root/lib/auth-context.tsx" || fail "auth-context.tsx missing"
+    test -f "$dam_root/app/login/page.tsx" || fail "login/page.tsx missing"
+
+    cd "$dam_root" && npx tsc --noEmit 2>&1 | grep -E "error TS" && fail "tsc errors found" || true
+    pass "step P0.4 auth (tsc 0 errors)"
+    ;;
+
+  P0.3)
+    dam_root="/home/ktalpha/Work/mediaX/mediaX-CMS/apps/dam"
+
+    test -f "$dam_root/app/layout.tsx" || fail "app/layout.tsx missing"
+    test -f "$dam_root/app/page.tsx" || fail "app/page.tsx missing"
+    test -f "$dam_root/app/(main)/layout.tsx" || fail "app/(main)/layout.tsx missing"
+    test -f "$dam_root/app/(main)/search/page.tsx" || fail "search/page.tsx missing"
+    test -f "$dam_root/components/layout/dam-sidebar.tsx" || fail "dam-sidebar.tsx missing"
+    test -f "$dam_root/components/layout/dam-header.tsx" || fail "dam-header.tsx missing"
+
+    cd "$dam_root" && npx tsc --noEmit 2>&1 | grep -E "error TS" && fail "tsc errors found" || true
+    pass "step P0.3 layout-shell (tsc 0 errors)"
+    ;;
+
+  P0.2)
+    # apps/dam 패키지 설정 (5파일)
+    dam_root="/home/ktalpha/Work/mediaX/mediaX-CMS/apps/dam"
+
+    test -f "$dam_root/package.json" || fail "package.json missing"
+    test -f "$dam_root/tsconfig.json" || fail "tsconfig.json missing"
+    test -f "$dam_root/next.config.mjs" || fail "next.config.mjs missing"
+    test -f "$dam_root/postcss.config.mjs" || fail "postcss.config.mjs missing"
+    test -f "$dam_root/.env.local.example" || fail ".env.local.example missing"
+
+    # JSON 파싱 검증
+    node -e "require('$dam_root/package.json')" 2>/dev/null \
+      || fail "package.json 파싱 실패"
+
+    pass "step P0.2 apps-dam-scaffold (5파일 OK)"
+    ;;
+
   *)
     fail "unknown step '$STEP'"
     ;;
