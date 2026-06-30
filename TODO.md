@@ -10,7 +10,7 @@
 - [x] **nfs-poc.4** source-analyze — 확장자별 분석 + 제외목록 확정 (2026-06-29)
 - [x] **nfs-poc.5** filtered-copy — robocopy DESIGNFS→DESIGNFS1 167,679파일/60.4GB 복사, 제외 113,069 (2026-06-30)
 - [x] **nfs-poc.6** scan-ingest — PowerShell Get-ChildItem 167,660파일/60.45GB → PC-B designfs1_mirror 적재 (2026-06-30)
-- [ ] **nfs-poc.7** hash-dedup — sha256 + duplicate_of edges
+- [x] **nfs-poc.7** hash-dedup — 167,660건 sha256 완료, dup_edges 161,118개 (2026-06-30)
 - [ ] **nfs-poc.8** thumbnails — thumbnail_worker designfs1_mirror
 - [ ] **nfs-poc.9** clip-embed — clip_worker designfs1_mirror
 - [ ] **nfs-poc.10** search-validate-adr-wrap — end-to-end 검증 + ADR + 결과 문서

@@ -10,7 +10,7 @@
     {"id": "nfs-poc.4", "title": "source-analyze", "status": "completed", "summary": "라이브 5.48TB/280,746파일 확인, 4월 대비 +600GB 증가로 복사타깃 59GB~658GB 불확실 발견, 제외목록 확정", "completed_at": "2026-06-29T17:55:00+09:00"},
     {"id": "nfs-poc.5", "title": "filtered-copy", "status": "completed", "summary": "robocopy DESIGNFS→DESIGNFS1 필터복사: 167,679파일/60.4GB 복사, 113,069 제외(psd·psb·zip·영상), Failed=0, EXIT:0 (1:08:54). verify 경량화(로그파싱+바운드 스팟체크, 분→25초)", "completed_at": "2026-06-30T00:30:00+09:00"},
     {"id": "nfs-poc.6", "title": "scan-ingest", "status": "completed", "summary": "PowerShell Get-ChildItem(WSL2 9P 병목 우회)로 167,660파일/60.45GB → PC-B designfs1_mirror 적재, 29분37초 (os.walk 대비 ~20배)", "completed_at": "2026-06-30T17:28:00+09:00"},
-    {"id": "nfs-poc.7", "title": "hash-dedup", "status": "pending", "summary": ""},
+    {"id": "nfs-poc.7", "title": "hash-dedup", "status": "completed", "summary": "167,660건 sha256 완료 (failed=0), duplicate_edges 161,118개 삽입, 소요 46.8분", "completed_at": "2026-06-30T18:22:00+09:00"},
     {"id": "nfs-poc.8", "title": "thumbnails", "status": "pending", "summary": ""},
     {"id": "nfs-poc.9", "title": "clip-embed", "status": "pending", "summary": ""},
     {"id": "nfs-poc.10", "title": "search-validate-adr-wrap", "status": "pending", "summary": ""}
