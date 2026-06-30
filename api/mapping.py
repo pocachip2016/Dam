@@ -141,6 +141,35 @@ def by_class(
     return {"class": cls, "total": total, "page": page, "size": size, "assets": [dict(r) for r in rows]}
 
 
+@router.get("/contents")
+def search_contents(
+    q: str | None = Query(None),
+    limit: int = Query(20, ge=1, le=200),
+    user: User = _admin,
+):
+    with _conn() as conn:
+        with conn.cursor() as cur:
+            if q:
+                cur.execute(
+                    """SELECT content_id, title, original_title, content_type, production_year
+                       FROM content_catalog_mirror
+                       WHERE title ILIKE %s OR original_title ILIKE %s
+                       ORDER BY title
+                       LIMIT %s""",
+                    (f"%{q}%", f"%{q}%", limit),
+                )
+            else:
+                cur.execute(
+                    """SELECT content_id, title, original_title, content_type, production_year
+                       FROM content_catalog_mirror
+                       ORDER BY title
+                       LIMIT %s""",
+                    (limit,),
+                )
+            rows = cur.fetchall()
+    return {"q": q, "limit": limit, "results": [dict(r) for r in rows]}
+
+
 @router.get("/asset/{asset_id}")
 def asset_detail(asset_id: int, user: User = _admin):
     with _conn() as conn:
