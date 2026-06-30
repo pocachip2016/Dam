@@ -28,6 +28,7 @@ try:
     from fastapi import Depends, FastAPI, HTTPException, Query
     from fastapi.responses import FileResponse, RedirectResponse
     from fastapi.staticfiles import StaticFiles
+    from fastapi.middleware.cors import CORSMiddleware
 except ImportError:
     sys.exit('FastAPI 미설치. 실행: pip install fastapi')
 
@@ -55,6 +56,15 @@ app = FastAPI(title='Dam Search API', version='0.4.0')
 _static_dir = Path(__file__).parent / 'static'
 if _static_dir.exists():
     app.mount('/static', StaticFiles(directory=str(_static_dir)), name='static')
+
+cors_origins = os.getenv('DAM_CORS_ORIGINS', 'http://localhost:3001').split(',')
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=cors_origins,
+    allow_credentials=True,
+    allow_methods=['*'],
+    allow_headers=['*'],
+)
 
 app.include_router(auth_router)
 app.include_router(tags_router)
@@ -419,7 +429,7 @@ def similar(
 # GET /thumb/<id>
 # ---------------------------------------------------------------------------
 @app.get('/thumb/{asset_id}')
-def thumb(asset_id: int, user: User = Depends(require_user('viewer'))):
+def thumb(asset_id: int):
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute("SELECT thumbnail_path FROM assets WHERE id = %s", (asset_id,))
