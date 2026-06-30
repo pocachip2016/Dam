@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dam — 워커 모니터링</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, sans-serif; background: #111; color: #eee; min-height: 100vh; }
+
+  header { padding: 16px 24px; background: #1a1a1a; border-bottom: 1px solid #2a2a2a;
+           display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  header h1 { font-size: 18px; font-weight: 700; color: #fff; }
+  #refresh-badge { font-size: 12px; color: #555; }
+  .nav-link { font-size: 13px; color: #3b82f6; text-decoration: none; margin-left: auto; }
+  .nav-link:hover { text-decoration: underline; }
+
+  /* ── login overlay ── */
+  #login-overlay { position: fixed; inset: 0; background: #111;
+                   display: flex; align-items: center; justify-content: center; z-index: 100; }
+  .login-box { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 12px;
+               padding: 32px; width: 320px; }
+  .login-box h2 { font-size: 16px; margin-bottom: 20px; color: #fff; }
+  .form-group { margin-bottom: 14px; }
+  .form-group label { display: block; font-size: 12px; color: #888; margin-bottom: 4px; text-transform: uppercase; }
+  .form-group input { width: 100%; padding: 9px 12px; background: #222; border: 1px solid #333;
+                       border-radius: 6px; color: #eee; font-size: 14px; outline: none; }
+  .form-group input:focus { border-color: #555; }
+  #login-btn { width: 100%; padding: 10px; background: #3b82f6; border: none; border-radius: 6px;
+               color: #fff; font-size: 14px; cursor: pointer; margin-top: 4px; }
+  #login-btn:hover { background: #2563eb; }
+  #login-err { font-size: 12px; color: #ef4444; margin-top: 10px; min-height: 18px; }
+
+  /* ── dashboard ── */
+  #dashboard { padding: 24px; }
+  #status-bar { font-size: 12px; color: #555; margin-bottom: 16px; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+  .card { background: #1a1a1a; border-radius: 10px; padding: 16px;
+          border: 1px solid #2a2a2a; }
+  .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .worker-name { font-size: 14px; font-weight: 600; color: #fff; }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .dot-running  { background: #22c55e; box-shadow: 0 0 6px #22c55e88; }
+  .dot-done     { background: #3b82f6; }
+  .dot-stale    { background: #f59e0b; }
+  .dot-error    { background: #ef4444; }
+
+  .progress-bar { background: #2a2a2a; border-radius: 4px; height: 6px; margin-bottom: 8px; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 4px; background: #3b82f6;
+                   transition: width .4s ease; }
+  .progress-fill.done  { background: #22c55e; }
+  .progress-fill.error { background: #ef4444; }
+
+  .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; font-size: 12px; color: #888; }
+  .meta .val { color: #ccc; }
+  .meta .err  { color: #ef4444; }
+
+  .empty { padding: 60px; text-align: center; color: #444; font-size: 14px; }
+
+  button.logout { padding: 6px 14px; background: #333; border: none; border-radius: 6px;
+                  color: #aaa; font-size: 12px; cursor: pointer; }
+  button.logout:hover { background: #444; }
+</style>
+</head>
+<body>
+
+<!-- 로그인 오버레이 -->
+<div id="login-overlay">
+  <div class="login-box">
+    <h2>Dam 어드민 로그인</h2>
+    <div class="form-group">
+      <label>Username</label>
+      <input id="u" type="text" autocomplete="username">
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input id="p" type="password" autocomplete="current-password">
+    </div>
+    <button id="login-btn" onclick="doLogin()">로그인</button>
+    <div id="login-err"></div>
+  </div>
+</div>
+
+<header>
+  <h1>Dam — 워커 모니터링</h1>
+  <span id="refresh-badge"></span>
+  <a href="/" class="nav-link">← 검색으로</a>
+  <button class="logout" onclick="doLogout()">로그아웃</button>
+</header>
+
+<div id="dashboard">
+  <div id="status-bar">로딩 중…</div>
+  <div class="grid" id="grid"></div>
+</div>
+
+<script>
+const TOKEN_KEY = 'dam_token';
+let refreshTimer = null;
+
+function getToken() { return localStorage.getItem(TOKEN_KEY); }
+
+async function doLogin() {
+  const u = document.getElementById('u').value.trim();
+  const p = document.getElementById('p').value;
+  document.getElementById('login-err').textContent = '';
+  try {
+    const r = await fetch('/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: u, password: p }),
+    });
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      document.getElementById('login-err').textContent = j.detail || `오류 ${r.status}`;
+      return;
+    }
+    const j = await r.json();
+    if (j.role !== 'admin') {
+      document.getElementById('login-err').textContent = '어드민 계정만 접근 가능합니다.';
+      return;
+    }
+    localStorage.setItem(TOKEN_KEY, j.token);
+    document.getElementById('login-overlay').style.display = 'none';
+    load();
+  } catch (e) {
+    document.getElementById('login-err').textContent = '서버 연결 실패';
+  }
+}
+
+function doLogout() {
+  localStorage.removeItem(TOKEN_KEY);
+  location.reload();
+}
+
+function fmtAge(ts) {
+  if (!ts) return '—';
+  const s = Math.floor((Date.now() - new Date(ts)) / 1000);
+  if (s < 60) return `${s}초 전`;
+  if (s < 3600) return `${Math.floor(s/60)}분 전`;
+  return `${Math.floor(s/3600)}시간 전`;
+}
+
+function fmtEta(sec) {
+  if (sec == null) return '—';
+  if (sec < 60) return `${sec}초`;
+  if (sec < 3600) return `${Math.floor(sec/60)}분`;
+  return `${Math.floor(sec/3600)}시간 ${Math.floor((sec%3600)/60)}분`;
+}
+
+function statusClass(r) {
+  if (r.finished_at) return 'dot-done';
+  const age = (Date.now() - new Date(r.last_heartbeat || r.started_at)) / 1000;
+  if (age > 300) return 'dot-stale';
+  if (r.errors > 0) return 'dot-error';
+  return 'dot-running';
+}
+
+function renderCard(r) {
+  const pct = r.progress_pct ?? (r.finished_at ? 100 : 0);
+  const sc = statusClass(r);
+  const fillCls = r.finished_at ? 'done' : r.errors > 0 ? 'error' : '';
+  return `
+    <div class="card">
+      <div class="card-header">
+        <span class="worker-name">${r.worker_name}</span>
+        <span class="status-dot ${sc}" title="${sc.replace('dot-','')}"></span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill ${fillCls}" style="width:${pct}%"></div>
+      </div>
+      <div class="meta">
+        <span>진행률</span><span class="val">${pct != null ? pct+'%' : '—'}</span>
+        <span>처리</span><span class="val">${r.processed.toLocaleString()} / ${r.total_planned != null ? r.total_planned.toLocaleString() : '?'}</span>
+        <span>오류</span><span class="${r.errors>0?'err':'val'}">${r.errors}</span>
+        <span>ETA</span><span class="val">${fmtEta(r.eta_seconds)}</span>
+        <span>heartbeat</span><span class="val">${fmtAge(r.last_heartbeat)}</span>
+        <span>시작</span><span class="val">${new Date(r.started_at).toLocaleString('ko-KR')}</span>
+        ${r.finished_at ? `<span>종료</span><span class="val">${new Date(r.finished_at).toLocaleString('ko-KR')}</span>` : ''}
+      </div>
+    </div>`;
+}
+
+async function load() {
+  const token = getToken();
+  if (!token) return;
+  try {
+    const r = await fetch('/api/admin/workers?limit=50', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (r.status === 401 || r.status === 403) { doLogout(); return; }
+    const data = await r.json();
+    const grid = document.getElementById('grid');
+    if (!data.length) {
+      grid.innerHTML = '<div class="empty">실행 기록이 없습니다.</div>';
+    } else {
+      grid.innerHTML = data.map(renderCard).join('');
+    }
+    const now = new Date().toLocaleTimeString('ko-KR');
+    document.getElementById('status-bar').textContent = `${data.length}개 run · 최종 갱신 ${now}`;
+  } catch (e) {
+    document.getElementById('status-bar').textContent = '로드 실패 — 재시도 중…';
+  }
+  scheduleRefresh();
+}
+
+function scheduleRefresh() {
+  clearTimeout(refreshTimer);
+  const badge = document.getElementById('refresh-badge');
+  let countdown = 60;
+  const tick = () => {
+    badge.textContent = `${countdown}초 후 갱신`;
+    if (countdown-- > 0) refreshTimer = setTimeout(tick, 1000);
+    else load();
+  };
+  tick();
+}
+
+// 초기화
+document.getElementById('p').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+if (getToken()) {
+  document.getElementById('login-overlay').style.display = 'none';
+  load();
+}
+</script>
+</body>
+</html>

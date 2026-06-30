@@ -470,6 +470,21 @@ def stats(user: User = Depends(require_user('viewer'))):
     return {'by_realm': list(realm_rows.values()), 'poc_sample_by_ext': by_ext}
 
 
+# ---------------------------------------------------------------------------
+# GET /health  — liveness probe (무인증, DB SELECT 1 만)
+# ---------------------------------------------------------------------------
+@app.get('/health', include_in_schema=False)
+def health():
+    try:
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute('SELECT 1')
+        return {'status': 'ok'}
+    except Exception:
+        from fastapi.responses import JSONResponse
+        return JSONResponse(status_code=503, content={'status': 'db_error'})
+
+
 if __name__ == '__main__':
     import uvicorn
     uvicorn.run(app, host='127.0.0.1', port=18000)

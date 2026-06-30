@@ -897,6 +897,58 @@ print('  ✓ ingest_poster routes:', routes)
     pass "step poster-ingest-P.1 Dam DB migration + ingest API"
     ;;
 
+  4.3)
+    BASE="${DAM_BASE:-http://localhost:18000}"
+
+    # 1. worker_runs 테이블 존재
+    tbl=$(psql_q "SELECT to_regclass('public.worker_runs')")
+    [[ "$tbl" == "worker_runs" ]] || fail "worker_runs 테이블 없음 — 011_worker_runs.sql 적용 필요"
+
+    # 2. RunTracker dummy run — INSERT + heartbeat + finished_at
+    run_id=$(PYTHONPATH="$REPO" DAM_DSN="$DSN" "$REPO/.venv/bin/python" -c "
+from ingest.run_tracker import RunTracker
+with RunTracker('verify_dummy', total_planned=10, dsn='$DSN') as rt:
+    rt.tick(5, errors=0, force=True)
+    rt.tick(10, errors=0, force=True)
+    print(rt.run_id)
+" 2>/dev/null | tail -1)
+    [[ -n "$run_id" ]] || fail "RunTracker run_id 획득 실패"
+
+    hb=$(psql_q "SELECT last_heartbeat IS NOT NULL FROM worker_runs WHERE id=$run_id")
+    [[ "$hb" == "t" ]] || fail "heartbeat 미갱신 (run_id=$run_id)"
+
+    fin=$(psql_q "SELECT finished_at IS NOT NULL FROM worker_runs WHERE id=$run_id")
+    [[ "$fin" == "t" ]] || fail "finished_at 미기록 (run_id=$run_id)"
+
+    # cleanup
+    psql_q "DELETE FROM worker_runs WHERE id=$run_id" > /dev/null
+
+    # 3. /health 무인증 200
+    code=$(curl -o /dev/null -s -w "%{http_code}" "${BASE}/health")
+    [[ "$code" == "200" ]] || fail "/health → $code (expected 200)"
+
+    # 4. /api/admin/workers — admin 200, viewer 403
+    # admin 토큰 발급
+    admin_tok=$(PYTHONPATH="$REPO" DAM_DSN="$DSN" \
+      "$REPO/.venv/bin/python" "$REPO/scripts/verify43_token.py" verify43_adm admin 2>/dev/null)
+
+    viewer_tok=$(PYTHONPATH="$REPO" DAM_DSN="$DSN" \
+      "$REPO/.venv/bin/python" "$REPO/scripts/verify43_token.py" verify43_vw viewer 2>/dev/null)
+
+    code=$(curl -o /dev/null -s -w "%{http_code}" \
+      -H "Authorization: Bearer ${admin_tok}" "${BASE}/api/admin/workers")
+    [[ "$code" == "200" ]] || fail "/api/admin/workers admin → $code (expected 200)"
+
+    code=$(curl -o /dev/null -s -w "%{http_code}" \
+      -H "Authorization: Bearer ${viewer_tok}" "${BASE}/api/admin/workers")
+    [[ "$code" == "403" ]] || fail "/api/admin/workers viewer → $code (expected 403)"
+
+    # cleanup
+    psql_q "DELETE FROM users WHERE username IN ('verify43_adm','verify43_vw')" > /dev/null
+
+    pass "step 4.3 monitoring (worker_runs OK, RunTracker OK, /health OK, /admin/workers role OK)"
+    ;;
+
   *)
     fail "unknown step '$STEP'"
     ;;
