@@ -8,10 +8,20 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from unittest.mock import patch, MagicMock
 from fastapi.testclient import TestClient
 from fastapi import FastAPI
+import api.mapping as _mapping_mod
 from api.mapping import router
+from api.auth import User
 
 app = FastAPI()
 app.include_router(router)
+
+_admin_user = User(id=1, username="testadmin", role="admin")
+
+def _override_admin():
+    return _admin_user
+
+app.dependency_overrides[_mapping_mod._admin.dependency] = _override_admin
+
 client = TestClient(app, raise_server_exceptions=False)
 
 
@@ -85,6 +95,46 @@ class TestByClass:
         with patch("api.mapping.psycopg.connect", return_value=conn):
             r = client.get("/api/mapping/by-class/promotion?status=candidate")
         assert r.status_code == 200
+
+
+class TestSearchContents:
+    def test_search_with_q(self):
+        conn, cur = _mock_conn()
+        cur.fetchall.return_value = [
+            {"content_id": 1, "title": "기생충", "original_title": "Parasite",
+             "content_type": "movie", "production_year": 2019}
+        ]
+        with patch("api.mapping.psycopg.connect", return_value=conn):
+            r = client.get("/api/mapping/contents?q=기생충")
+        assert r.status_code == 200
+        data = r.json()
+        assert data["q"] == "기생충"
+        assert len(data["results"]) == 1
+        assert data["results"][0]["content_id"] == 1
+
+    def test_search_empty_result(self):
+        conn, cur = _mock_conn()
+        cur.fetchall.return_value = []
+        with patch("api.mapping.psycopg.connect", return_value=conn):
+            r = client.get("/api/mapping/contents?q=없는제목XYZ")
+        assert r.status_code == 200
+        assert r.json()["results"] == []
+
+    def test_search_no_q_returns_list(self):
+        conn, cur = _mock_conn()
+        cur.fetchall.return_value = [
+            {"content_id": 2, "title": "더 글로리", "original_title": None,
+             "content_type": "series", "production_year": 2022}
+        ]
+        with patch("api.mapping.psycopg.connect", return_value=conn):
+            r = client.get("/api/mapping/contents?limit=1")
+        assert r.status_code == 200
+        assert r.json()["q"] is None
+        assert len(r.json()["results"]) == 1
+
+    def test_search_limit_out_of_range(self):
+        r = client.get("/api/mapping/contents?limit=999")
+        assert r.status_code == 422
 
 
 class TestAssetDetail:
