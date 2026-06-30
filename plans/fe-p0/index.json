@@ -1,0 +1,11 @@
+{
+  "project": "Dam",
+  "phase": "fe-p0-scaffold",
+  "steps": [
+    {"step": "P0.1", "name": "dam-be-cors", "status": "pending"},
+    {"step": "P0.2", "name": "apps-dam-scaffold", "status": "pending"},
+    {"step": "P0.3", "name": "layout-shell", "status": "pending"},
+    {"step": "P0.4", "name": "auth", "status": "pending"},
+    {"step": "P0.5", "name": "smoke-test", "status": "pending"}
+  ]
+}
