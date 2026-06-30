@@ -8,8 +8,8 @@
 - [x] **nfs-poc.2** dual-mount — DESIGNFS(ro) + DESIGNFS1(rw) drvfs 마운트 (2026-06-29)
 - [x] **nfs-poc.3** realm-param — 3개 워커 DAM_REALM env화 (2026-06-29)
 - [x] **nfs-poc.4** source-analyze — 확장자별 분석 + 제외목록 확정 (2026-06-29)
-- [ ] **nfs-poc.5** filtered-copy — robocopy DESIGNFS→DESIGNFS1 (psd·psb·zip·영상 제외)
-- [ ] **nfs-poc.6** scan-ingest — realm=designfs1_mirror DB 적재
+- [x] **nfs-poc.5** filtered-copy — robocopy DESIGNFS→DESIGNFS1 167,679파일/60.4GB 복사, 제외 113,069 (2026-06-30)
+- [x] **nfs-poc.6** scan-ingest — PowerShell Get-ChildItem 167,660파일/60.45GB → PC-B designfs1_mirror 적재 (2026-06-30)
 - [ ] **nfs-poc.7** hash-dedup — sha256 + duplicate_of edges
 - [ ] **nfs-poc.8** thumbnails — thumbnail_worker designfs1_mirror
 - [ ] **nfs-poc.9** clip-embed — clip_worker designfs1_mirror

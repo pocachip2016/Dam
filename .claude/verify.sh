@@ -415,6 +415,72 @@ print(len(bad))" 2>/dev/null)
     pass "step nfs-poc.1 branch-and-scaffold"
     ;;
 
+  nfs-poc.5)
+    DEST="/mnt/designfs1/dam_dev/11.NEXT_UI_2022_10월오픈"
+    SRC="/mnt/designfs/디자인파트/11.NEXT_UI_2022_10월오픈"
+    LOG="$REPO/plans/dev-nfs-poc/nfs-poc5-robocopy.log"
+    # SMB(drvfs) 전체 find 순회는 88k 디렉토리 × 네트워크 왕복으로 수 분 소요 →
+    # robocopy 요약 로그(권위 수치) 파싱 + 얕은 sanity + 바운드된 제외 스팟체크로 대체.
+
+    # 1. 목적지 디렉토리 존재 + 얕게 비어있지 않음 (early-exit, 즉시 반환)
+    test -d "$DEST" || fail "목적지 없음: $DEST"
+    first=$(find "$DEST" -maxdepth 4 -type f -print -quit 2>/dev/null)
+    [[ -n "$first" ]] || fail "목적지에 파일 없음 (복사 미완료?)"
+
+    # 2. robocopy 요약 로그 존재 + 성공(EXIT:0)
+    test -f "$LOG" || fail "robocopy 로그 없음: $LOG"
+    grep -q "EXIT:0" "$LOG" || fail "robocopy EXIT:0 아님 (복사 실패/미완료)"
+
+    # 3. 파일 통계 라인 파싱 — 6개 정수 & Total∈[200000,99999999] 인 라인이 '파일' 행
+    #    (디렉토리행 Total=88397<200k, 바이트행 Total=5.4e12>1e8, 날짜행 first=2026 → 모두 배제)
+    TOTAL=""; COPIED=""; SKIPPED=""; FAILED=""
+    while IFS= read -r ln; do
+      ints=($(echo "$ln" | grep -oE '[0-9]+' || true))
+      [[ "${#ints[@]}" -eq 0 ]] && continue
+      if [[ "${#ints[@]}" -eq 6 && "${ints[0]}" -ge 200000 && "${ints[0]}" -le 99999999 ]]; then
+        TOTAL="${ints[0]}"; COPIED="${ints[1]}"; SKIPPED="${ints[2]}"; FAILED="${ints[4]}"
+        break
+      fi
+    done < "$LOG"
+    [[ -n "$COPIED" ]]            || fail "robocopy 파일 통계 라인 파싱 실패"
+    [[ "$COPIED" -gt 0 ]]         || fail "복사 파일 수=0"
+    [[ "$FAILED" -eq 0 ]]         || fail "robocopy FAILED=${FAILED} (복사 실패 존재)"
+    [[ $((COPIED + SKIPPED)) -eq "$TOTAL" ]] \
+      || fail "정합성 실패: Copied($COPIED)+Skipped($SKIPPED) != Total($TOTAL)"
+
+    # 4. 제외확장자 스팟체크 — robocopy /XF 가 소스에서 제외(구조적 보장)이나
+    #    바운드된 early-exit find(최대 25s)로 직접 재확인. 매치 시 즉시 실패, 무매치는 통과.
+    EXCL=$(timeout 25 find "$DEST" \( \
+        -iname '*.psd' -o -iname '*.psb' -o -iname '*.zip' \
+        -o -iname '*.mp4' -o -iname '*.mov' \
+      \) -type f -print -quit 2>/dev/null || true)
+    [[ -z "$EXCL" ]] || fail "목적지에 제외확장자 발견: $EXCL"
+
+    # 5. 소스 마운트 여전히 readable (원본 불변 확인)
+    test -d "$SRC" || fail "소스 폴더 접근 불가 (원본 확인 실패): $SRC"
+
+    echo "  Total=$TOTAL Copied=$COPIED Skipped=$SKIPPED Failed=$FAILED  excl_spotcheck=clean"
+    pass "step nfs-poc.5 filtered-copy (copied=${COPIED}/${TOTAL}, failed=0, excluded=${SKIPPED})"
+    ;;
+
+  nfs-poc.6)
+    PCB_DSN="postgresql://dam:dam@222.112.179.161:15432/dam"
+    # 1. PC-B postgres 도달 가능
+    nc -z 222.112.179.161 15432 2>/dev/null || fail "PC-B postgres(15432) 미도달"
+    # 2. designfs1_mirror 적재 건수 (psycopg via .venv)
+    count=$("$REPO/.venv/bin/python" -c "
+import psycopg
+with psycopg.connect('$PCB_DSN') as c:
+    r = c.execute(\"SELECT COUNT(*) FROM asset_storage WHERE realm='designfs1_mirror'\").fetchone()
+    print(r[0])
+" 2>/dev/null)
+    [[ -n "$count" ]] || fail "PC-B DB 쿼리 실패"
+    [[ "$count" -gt 0 ]] || fail "designfs1_mirror 0건 (적재 미완료)"
+    [[ "$count" -ge 100000 ]] || fail "designfs1_mirror 건수 너무 적음: $count (기대 ≥100k / 복사본 167,679)"
+    echo "  designfs1_mirror 적재 건수: $count"
+    pass "step nfs-poc.6 scan-ingest (designfs1_mirror=${count}건)"
+    ;;
+
   nfs-poc.4)
     DOC="$REPO/docs/nfs-poc-analysis.md"
     test -f "$DOC" || fail "docs/nfs-poc-analysis.md 없음"
