@@ -1,5 +1,5 @@
 """
-M.6 admin write API — 분류·매핑 human review endpoints.
+Admin API — 분류·매핑 human review + worker 모니터링.
 
 엔드포인트:
   POST /api/admin/classification/{asset_id}/{class}/confirm
@@ -9,6 +9,8 @@ M.6 admin write API — 분류·매핑 human review endpoints.
   POST /api/admin/mapping/{asset_id}/{content_id}/reject
   POST /api/admin/mapping/add              body: {asset_id, content_id, note?}
   POST /api/admin/unclassified/bulk-classify  body: {asset_ids, class, sub_class?}
+  GET  /api/admin/workers?limit=20         → 최근 run 목록 + 진행률 + ETA
+  GET  /api/admin/workers/{id}             → 단일 run 상세
 """
 import os
 import sys
@@ -20,7 +22,7 @@ try:
 except ImportError:
     sys.exit("psycopg 미설치")
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from api.auth import User, require_user
@@ -211,3 +213,65 @@ def bulk_classify(body: BulkClassifyBody, user: User = _admin):
             )
         conn.commit()
     return {"classified": len(body.asset_ids), "class": body.cls, "status": "confirmed"}
+
+
+# ── Worker Monitoring ─────────────────────────────────────────────────────────
+
+def _eta_seconds(row: dict) -> float | None:
+    """선형 보간 ETA (초). 계산 불가 시 None."""
+    if not row.get("total_planned") or not row.get("processed"):
+        return None
+    elapsed = (row["last_heartbeat"] - row["started_at"]).total_seconds()
+    if elapsed <= 0:
+        return None
+    rate = row["processed"] / elapsed
+    remaining = row["total_planned"] - row["processed"]
+    return remaining / rate if rate > 0 else None
+
+
+@router.get("/workers")
+def list_worker_runs(limit: int = Query(20, ge=1, le=200), user: User = _admin):
+    with _conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, worker_name, started_at, finished_at,
+                       total_planned, processed, errors, last_heartbeat, notes
+                FROM worker_runs
+                ORDER BY started_at DESC
+                LIMIT %s
+                """,
+                (limit,),
+            )
+            rows = cur.fetchall()
+
+    result = []
+    for r in rows:
+        pct = round(r["processed"] / r["total_planned"] * 100, 1) if r["total_planned"] else None
+        eta = _eta_seconds(r) if not r["finished_at"] else None
+        result.append({
+            **r,
+            "progress_pct": pct,
+            "eta_seconds": round(eta) if eta is not None else None,
+        })
+    return result
+
+
+@router.get("/workers/{run_id}")
+def get_worker_run(run_id: int, user: User = _admin):
+    with _conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, worker_name, started_at, finished_at,
+                       total_planned, processed, errors, last_heartbeat, notes
+                FROM worker_runs WHERE id = %s
+                """,
+                (run_id,),
+            )
+            row = cur.fetchone()
+    if not row:
+        raise HTTPException(404, "run not found")
+    pct = round(row["processed"] / row["total_planned"] * 100, 1) if row["total_planned"] else None
+    eta = _eta_seconds(row) if not row["finished_at"] else None
+    return {**row, "progress_pct": pct, "eta_seconds": round(eta) if eta is not None else None}

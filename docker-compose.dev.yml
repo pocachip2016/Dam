@@ -10,18 +10,16 @@ services:
   dam_postgres:
     image: pgvector/pgvector:pg16
     container_name: dam_postgres
-    entrypoint: ["/usr/local/bin/dam_init_guard.sh"]
     command: ["postgres"]
     environment:
       POSTGRES_USER: dam
       POSTGRES_PASSWORD: dam
       POSTGRES_DB: dam
       TZ: Asia/Seoul
-      # DAM_ALLOW_INIT: "yes"  # uncomment ONLY for intentional fresh cluster init
+      DAM_ALLOW_INIT: "yes"
     ports:
       - "127.0.0.1:15432:5432"
     volumes:
-      - ./scripts/postgres_entrypoint_guard.sh:/usr/local/bin/dam_init_guard.sh:ro
       - ./data/pg_data:/var/lib/postgresql/data
       - ./db/migrations:/docker-entrypoint-initdb.d:ro
     healthcheck:
