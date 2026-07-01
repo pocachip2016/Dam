@@ -1,0 +1,16 @@
+{
+  "project": "Dam",
+  "phase": "dev-tmdb-image-ingest",
+  "title": "TMDB 이미지 다중 ingest 엔드포인트 (mediaX Plan B B.2.0)",
+  "branch": "feature/tmdb-image-ingest",
+  "context": "mediaX B-1(완료)은 tmdb_image_cache로 TMDB 이미지 메타(URL)만 캐시했다. Plan C(디자인 에셋 ↔ TMDB 이미지 유사도 매핑)를 위해 이 이미지들을 Dam CAS에 바이너리로 안착시키는 것이 이 단계의 목표. 기존 POST /api/ingest/poster는 mediaX content_id 필수(콘텐츠 종속) 흐름이라, tmdb_movie_cache/tv_cache/person_master 전체를 대상으로 하는 TMDB 이미지 backfill과는 맞지 않는다(다수가 아직 mediaX에 미편성). 따라서 entity_type+tmdb_id 기준의 독립 캐시 DB로 신규 엔드포인트를 추가한다 — content_id 없이 시작하되, 향후 서비스 콘텐츠로 채택될 때 기존 asset_content_link(asset_id, content_id) 삽입만으로 연결 가능하도록 스키마를 열어둔다. asset_storage.realm='tmdb_cas'와 source_profiles 시드는 dev-realm-decouple A.0(완료)에서 이미 도입됨. A.1~A.5(워커 realm 파라미터화→임베딩)는 미완료이나 이 단계와 독립적.",
+  "depends_on": ["Dam:dev-realm-decouple A.0 (완료, tmdb_cas realm/source_profiles 재사용)"],
+  "steps": [
+    { "step": 0, "id": "B.2.0.0", "name": "branch-and-schema", "status": "completed",
+      "summary": "feature/tmdb-image-ingest 브랜치(main 기준, A.0 1e4a67a cherry-pick으로 tmdb_cas realm/source_profiles 보충) + plans/dev-tmdb-image-ingest 신설 + tmdb_image_ingest_log 마이그레이션(013) + verify.sh B.2.0.0 케이스" },
+    { "step": 1, "id": "B.2.0.1", "name": "ingest-endpoint", "status": "pending",
+      "summary": "api/ingest_tmdb_image.py 신규(POST /api/ingest/tmdb-image, GET status) + api/search.py 라우터 등록" },
+    { "step": 2, "id": "B.2.0.2", "name": "tests-and-verify", "status": "pending",
+      "summary": "tests/test_ingest_tmdb_image.py(httpx mock) + verify.sh B.2.0.2 케이스" }
+  ]
+}

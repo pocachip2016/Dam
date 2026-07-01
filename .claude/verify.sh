@@ -12,6 +12,27 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
 psql_q() { docker exec dam_postgres psql -U dam -d dam -tAc "$1" 2>/dev/null; }
 
 case "$STEP" in
+  B.2.0.0)
+    branch=$(git -C "$REPO" rev-parse --abbrev-ref HEAD)
+    [[ "$branch" == "feature/tmdb-image-ingest" ]] \
+      || fail "branch=$branch (expected feature/tmdb-image-ingest)"
+    test -f "$REPO/plans/dev-tmdb-image-ingest/index.json" \
+      || fail "plans/dev-tmdb-image-ingest/index.json missing"
+    test -f "$REPO/db/migrations/013_tmdb_image_ingest.sql" \
+      || fail "013_tmdb_image_ingest.sql missing"
+    psql_q "SELECT 1 FROM pg_tables WHERE tablename='tmdb_image_ingest_log'" | grep -q 1 \
+      || fail "table tmdb_image_ingest_log missing — 013 not applied"
+    uniq=$(psql_q "SELECT COUNT(*) FROM pg_indexes \
+      WHERE tablename='tmdb_image_ingest_log' AND indexname='uq_tiil_natural_key'")
+    [[ "${uniq:-0}" -ge 1 ]] || fail "tmdb_image_ingest_log UNIQUE natural-key index missing"
+    realm_ok=$(psql_q "SELECT pg_get_constraintdef(oid) FROM pg_constraint \
+      WHERE conname='asset_storage_realm_check'" | grep -c "tmdb_cas")
+    [[ "${realm_ok:-0}" -ge 1 ]] || fail "asset_storage_realm_check missing tmdb_cas"
+    psql_q "SELECT 1 FROM source_profiles WHERE realm='tmdb_cas'" | grep -q 1 \
+      || fail "source_profiles missing tmdb_cas seed"
+    pass "step B.2.0.0 branch-and-schema"
+    ;;
+
   1.1)
     branch=$(git -C "$REPO" rev-parse --abbrev-ref HEAD)
     [[ "$branch" == "feature/server-migration" ]] \
