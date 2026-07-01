@@ -8,9 +8,9 @@
   "steps": [
     { "step": 0, "id": "B.2.0.0", "name": "branch-and-schema", "status": "completed",
       "summary": "feature/tmdb-image-ingest 브랜치(main 기준, A.0 1e4a67a cherry-pick으로 tmdb_cas realm/source_profiles 보충) + plans/dev-tmdb-image-ingest 신설 + tmdb_image_ingest_log 마이그레이션(013) + verify.sh B.2.0.0 케이스" },
-    { "step": 1, "id": "B.2.0.1", "name": "ingest-endpoint", "status": "pending",
-      "summary": "api/ingest_tmdb_image.py 신규(POST /api/ingest/tmdb-image, GET status) + api/search.py 라우터 등록" },
-    { "step": 2, "id": "B.2.0.2", "name": "tests-and-verify", "status": "pending",
-      "summary": "tests/test_ingest_tmdb_image.py(httpx mock) + verify.sh B.2.0.2 케이스" }
+    { "step": 1, "id": "B.2.0.1", "name": "ingest-endpoint", "status": "completed",
+      "summary": "api/ingest_tmdb_image.py 신규(POST /api/ingest/tmdb-image, GET status) + api/search.py 라우터 등록. ingest_poster.py의 file_size_bytes→size_bytes 컬럼명 버그 발견 및 회피(신규 코드는 정정, 기존 파일은 미수정)" },
+    { "step": 2, "id": "B.2.0.2", "name": "tests-and-verify", "status": "completed",
+      "summary": "tests/test_ingest_tmdb_image.py(psycopg mock, dependency_overrides로 admin auth 우회) 6개 테스트 + verify.sh B.2.0.2 케이스, 전부 PASS" }
   ]
 }

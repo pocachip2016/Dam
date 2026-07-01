@@ -33,6 +33,27 @@ case "$STEP" in
     pass "step B.2.0.0 branch-and-schema"
     ;;
 
+  B.2.0.1)
+    test -f "$REPO/api/ingest_tmdb_image.py" \
+      || fail "api/ingest_tmdb_image.py missing"
+    PYTHONPATH="$REPO" "$REPO/.venv/bin/python" -c "from api.ingest_tmdb_image import router" 2>/dev/null \
+      || fail "api.ingest_tmdb_image.router not importable"
+    grep -q "ingest_tmdb_image_router" "$REPO/api/search.py" \
+      || fail "ingest_tmdb_image_router not registered in api/search.py"
+    grep -q "app.include_router(ingest_tmdb_image_router)" "$REPO/api/search.py" \
+      || fail "ingest_tmdb_image_router not included via app.include_router"
+    pass "step B.2.0.1 ingest-endpoint"
+    ;;
+
+  B.2.0.2)
+    test -f "$REPO/tests/test_ingest_tmdb_image.py" \
+      || fail "tests/test_ingest_tmdb_image.py missing"
+    PYTHONPATH="$REPO" "$REPO/.venv/bin/python" -m pytest \
+      "$REPO/tests/test_ingest_tmdb_image.py" -q --tb=short \
+      || fail "test_ingest_tmdb_image.py failing"
+    pass "step B.2.0.2 tests-and-verify"
+    ;;
+
   1.1)
     branch=$(git -C "$REPO" rev-parse --abbrev-ref HEAD)
     [[ "$branch" == "feature/server-migration" ]] \
