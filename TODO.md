@@ -4,6 +4,9 @@
 
 ## Now (진행 중, 1~3개)
 - [ ] **4.2.4** ui-login — login.html + app.js + index.html 전환
+- [ ] **B.2.0** TMDB 이미지 다중 ingest 엔드포인트 (mediaX Plan B 후속) —
+      feature/tmdb-image-ingest, plans/dev-tmdb-image-ingest/. B.2.0.0(스키마) 완료,
+      B.2.0.1(엔드포인트)/B.2.0.2(테스트) 남음
 
 ## Next (이번 마일스톤 — Phase 4 ops-readiness)
 - [x] **3.1** archive-and-branch — `feature/mvp-features` 생성 (2026-05-06)
