@@ -177,7 +177,7 @@ def ingest_poster(req: PosterIngestRequest, user: User = _admin):
                 filename = dest.name
                 cur.execute(
                     """
-                    INSERT INTO assets (filename, sha256, file_size_bytes, asset_type)
+                    INSERT INTO assets (filename, sha256, size_bytes, asset_type)
                     VALUES (%s, %s, %s, 'source')
                     RETURNING id
                     """,

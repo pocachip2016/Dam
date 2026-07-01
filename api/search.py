@@ -38,6 +38,7 @@ from api.collections import router as collections_router
 from api.mapping import router as mapping_router
 from api.admin import router as admin_router
 from api.ingest_poster import router as ingest_poster_router
+from api.ingest_tmdb_image import router as ingest_tmdb_image_router
 
 try:
     import psycopg
@@ -61,6 +62,7 @@ app.include_router(collections_router)
 app.include_router(mapping_router)
 app.include_router(admin_router)
 app.include_router(ingest_poster_router)
+app.include_router(ingest_tmdb_image_router)
 
 @app.get('/', include_in_schema=False)
 def root():
