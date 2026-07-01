@@ -48,9 +48,16 @@ services:
       DAM_DSN: postgresql://dam:dam@dam_postgres:5432/dam
       DAM_REDIS: redis://dam_redis:6379/0
       DAM_POSTER_ROOT: /dam_posters
+      DAM_CORS_ORIGINS: "http://localhost:3001,http://localhost:3002,http://localhost:3100"
+      DAM_DISABLE_AUTH: "1"
+      MODEL_CACHE_DIR: /home/ktalpha/Work/Dam/dam_data/models
     volumes:
       - /mnt/d/Work/Dam/dam_data:/home/ktalpha/Work/Dam/dam_data:ro
       - ./data/posters:/dam_posters   # poster ingest 쓰기 전용 볼륨
+      - .:/app                        # dev: 소스코드 실시간 반영
+      - ./.venv/lib:/venv/lib:ro      # dev: torch/open_clip 포함 venv 라이브러리
+    command: >
+      sh -c "PYTHONPATH=/venv/lib/python3.12/site-packages uvicorn api.search:app --host 0.0.0.0 --port 8000"
     depends_on:
       dam_postgres:
         condition: service_healthy
