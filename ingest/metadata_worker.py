@@ -32,6 +32,15 @@ REALM    = os.environ.get("DAM_REALM",   "poc_sample")
 BATCH    = int(os.environ.get("DAM_BATCH",   "500"))
 WORKERS  = int(os.environ.get("DAM_WORKERS", "4"))
 
+# Source path remap: for accessing local copies when source is NAS-mounted
+_SRC_REMAP_RAW = os.environ.get('SRC_REMAP', '')
+_REMAP_OLD, _REMAP_NEW = (_SRC_REMAP_RAW.split('=', 1) if '=' in _SRC_REMAP_RAW else (None, None))
+
+def _remap_src(path: str) -> str:
+    if _REMAP_OLD and path.startswith(_REMAP_OLD):
+        return _REMAP_NEW + path[len(_REMAP_OLD):]
+    return path
+
 YEAR_RE  = re.compile(r"(?<!\d)(?:19|20)\d{2}(?!\d)")  # word-bounded 4-digit year
 # Split on path separators, underscores, hyphens, spaces, dots
 TOKEN_SEP = re.compile(r"[/\\_.+\-\s]+")
@@ -114,7 +123,7 @@ def _role_hint(folder_tokens: list[str], filename_tokens: list[str]) -> list[str
 
 def process(asset_id: int, physical_path: str) -> dict:
     filename = Path(physical_path).name
-    exif = _extract_exif(physical_path)  # None = skip (non-image or error)
+    exif = _extract_exif(_remap_src(physical_path))  # None = skip (non-image or error)
     ftoks = _folder_tokens(physical_path)
     ntoks = _filename_tokens(filename)
     year = _year_hint(physical_path, filename)
