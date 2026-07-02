@@ -4,9 +4,6 @@
 
 ## Now (진행 중, 1~3개)
 - [ ] **4.2.4** ui-login — login.html + app.js + index.html 전환
-- [ ] **B.2.0** TMDB 이미지 다중 ingest 엔드포인트 (mediaX Plan B 후속) —
-      feature/tmdb-image-ingest, plans/dev-tmdb-image-ingest/. B.2.0.0(스키마) 완료,
-      B.2.0.1(엔드포인트)/B.2.0.2(테스트) 남음
 
 ## Next (이번 마일스톤 — Phase 4 ops-readiness)
 - [x] **3.1** archive-and-branch — `feature/mvp-features` 생성 (2026-05-06)
@@ -15,7 +12,7 @@
 - [x] **3.4** search-filters — `/search_text` ext/folder/role/year/size/mtime 필터 (2026-05-06)
 - [x] **3.5** tags-collections — 다중 사용자 태그·컬렉션 (2026-05-06)
 - [x] **3.6** ocr-pipeline — EasyOCR GPU, ocr_tsv 검색 통합 (2026-05-06)
-- [ ] **3.7** wrap
+- [x] **3.7** wrap (2026-05-08)
 
 ## Later (백로그 — Phase 4+)
 - [ ] Phase 4 운영 준비 (auth / monitoring / backup / deployment) — `plans/dev-ops-readiness/`
