@@ -60,10 +60,10 @@ class TmdbImageIngestResponse(BaseModel):
 
 # ── Helper ────────────────────────────────────────────────────────────────────
 
-def _save_file(sha256: str, data: bytes) -> Path:
+def _save_file(sha256: str, data: bytes, ext: str = ".jpg") -> Path:
     dest_dir = DAM_TMDB_CAS_ROOT / sha256[:2]
     dest_dir.mkdir(parents=True, exist_ok=True)
-    dest = dest_dir / f"{sha256}.jpg"
+    dest = dest_dir / f"{sha256}{ext}"
     if not dest.exists():
         dest.write_bytes(data)
     return dest
@@ -135,9 +135,10 @@ def ingest_tmdb_image(req: TmdbImageIngestRequest, user: User = _admin):
 
         sha256 = _sha256_of_bytes(data)
 
-        # 4. 파일 저장 (sha256 샤딩 — content_id 없으므로)
+        # 4. 파일 저장 (sha256 샤딩 — content_id 없으므로). 로고 PNG 등 원본 확장자 보존
+        src_ext = Path(req.file_path).suffix.lower() or ".jpg"
         try:
-            dest = _save_file(sha256, data)
+            dest = _save_file(sha256, data, ext=src_ext)
         except Exception as exc:
             with conn.cursor() as cur:
                 cur.execute(
