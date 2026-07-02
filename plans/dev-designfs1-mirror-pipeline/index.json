@@ -51,11 +51,16 @@
       "status": "completed",
       "summary": "TODO.md Now/Done 갱신 + CHANGELOG.md 신규(초과분 이관) + CLAUDE.md Active Work 갱신 + plans/index.json 작성",
       "completed_at": "2026-07-02T21:40:00+09:00"
+    },
+    {
+      "step": "8",
+      "name": "main-merge-and-new5-ingest",
+      "status": "completed",
+      "summary": "feature/designfs1-mirror-pipeline → main --no-ff 머지 + push 완료(b9e788f). Step6에서 규명된 신규 이미지 5건 asset_id 490307~490311 수동 등록 후 metadata/thumbnail/clip(open+cn) 파이프라인 전량 완료. designfs1_mirror 누적 167,665건",
+      "completed_at": "2026-07-02T21:52:00+09:00"
     }
   ],
   "followups": [
-    "신규 이미지 5건(2026-06-30 스캔 이후 추가분) 후속 소규모 ingest 검토 여부 결정 필요",
-    "OCR(EasyOCR) 167k건은 이번 배치 범위에서 제외 — 별도 계획 필요",
-    "브랜치 main 머지 여부 사용자 확인 필요"
+    "OCR(EasyOCR) 167k건은 이번 배치 범위에서 제외 — 별도 계획 필요"
   ]
 }
