@@ -1,0 +1,61 @@
+{
+  "project": "Dam",
+  "phase": "phase5-designfs1-mirror-batch1",
+  "branch": "feature/designfs1-mirror-pipeline",
+  "steps": [
+    {
+      "step": "1",
+      "name": "branch",
+      "status": "completed",
+      "summary": "feature/designfs1-mirror-pipeline 브랜치 생성",
+      "completed_at": "2026-07-02T20:30:00+09:00"
+    },
+    {
+      "step": "2",
+      "name": "metadata-worker-src-remap",
+      "status": "completed",
+      "summary": "ingest/metadata_worker.py에 SRC_REMAP 헬퍼 추가 (thumbnail_worker.py 기존 패턴 재사용)",
+      "completed_at": "2026-07-02T20:35:00+09:00"
+    },
+    {
+      "step": "3",
+      "name": "metadata-worker-run",
+      "status": "completed",
+      "summary": "metadata_worker 167,660건 처리, errors=0, folder_tokens 전량 populated",
+      "completed_at": "2026-07-02T20:42:00+09:00"
+    },
+    {
+      "step": "4",
+      "name": "thumbnail-worker-run",
+      "status": "completed",
+      "summary": "thumbnail_worker 167,660건 중 166,703 성공(957 에러). 진행 중 썸네일 base를 D:\\dam_data\\thumbnails로 통합 이전(poc_sample 160,036건 포함, docker-compose 볼륨 추가 + DB 경로 일괄 갱신)",
+      "completed_at": "2026-07-02T21:02:00+09:00"
+    },
+    {
+      "step": "5",
+      "name": "clip-worker-run",
+      "status": "completed",
+      "summary": "open_clip 166,702건 + cn_clip 166,702건 임베딩 완료, 각 err=1",
+      "completed_at": "2026-07-02T21:27:00+09:00"
+    },
+    {
+      "step": "6",
+      "name": "verify-and-reconcile",
+      "status": "completed",
+      "summary": "파이프라인 전 단계 카운트 검증, 한글 파일명 인코딩 확증. 로컬 167,679 vs DB 167,660 차이 19건 규명(11 Office 임시잠금 + 4 브라우저 임시 + 5 신규이미지 후보 + DB전용 1건 소실)",
+      "completed_at": "2026-07-02T21:35:00+09:00"
+    },
+    {
+      "step": "7",
+      "name": "docs-wrap",
+      "status": "completed",
+      "summary": "TODO.md Now/Done 갱신 + CHANGELOG.md 신규(초과분 이관) + CLAUDE.md Active Work 갱신 + plans/index.json 작성",
+      "completed_at": "2026-07-02T21:40:00+09:00"
+    }
+  ],
+  "followups": [
+    "신규 이미지 5건(2026-06-30 스캔 이후 추가분) 후속 소규모 ingest 검토 여부 결정 필요",
+    "OCR(EasyOCR) 167k건은 이번 배치 범위에서 제외 — 별도 계획 필요",
+    "브랜치 main 머지 여부 사용자 확인 필요"
+  ]
+}

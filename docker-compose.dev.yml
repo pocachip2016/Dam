@@ -53,6 +53,7 @@ services:
       DAM_TMDB_CAS_ROOT: /dam_tmdb_cas
     volumes:
       - /mnt/d/Work/Dam/dam_data:/home/ktalpha/Work/Dam/dam_data:ro
+      - /mnt/d/dam_data/thumbnails:/mnt/d/dam_data/thumbnails:ro   # 썸네일 통합 base (poc_sample + designfs1_mirror)
       - ./data/posters:/dam_posters   # poster ingest 쓰기 전용 볼륨
       - /mnt/d/dam_data/tmdb:/dam_tmdb_cas   # tmdb 이미지 CAS 영속 볼륨
     depends_on:
