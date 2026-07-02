@@ -37,10 +37,22 @@ except ImportError:
 
 DB_DSN    = os.environ.get('DAM_DSN',    'postgresql://dam:dam@localhost:15432/dam')
 THUMB_DIR = os.environ.get('THUMB_DIR',  '/home/pocachip/dam_data/thumbnails')
-REALM     = 'poc_sample'
+REALM     = os.environ.get('THUMB_REALM', 'poc_sample')
 THUMB_MAX = 512          # 장축 최대 픽셀
 WORKERS   = int(os.environ.get('WORKERS', '2'))
 IMAGE_EXTS = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.tiff', '.tif'}
+
+# 소스 physical_path가 컨테이너 전용 경로라 호스트에서 직접 접근 불가한 경우의 치환 규칙
+# (예: tmdb_cas realm의 /dam_tmdb_cas -> /mnt/d/dam_data/tmdb). 썸네일 산출물 경로/DB
+# thumbnail_path는 기존 규약 그대로 두고, 소스 파일을 "읽을 때"만 적용한다.
+_SRC_REMAP_RAW = os.environ.get('SRC_REMAP', '')
+_REMAP_OLD, _REMAP_NEW = (_SRC_REMAP_RAW.split('=', 1) if '=' in _SRC_REMAP_RAW else (None, None))
+
+
+def _remap_src(path: str) -> str:
+    if _REMAP_OLD and path.startswith(_REMAP_OLD):
+        return _REMAP_NEW + path[len(_REMAP_OLD):]
+    return path
 
 
 def make_thumb(args) -> dict:
@@ -98,7 +110,7 @@ def main():
         for asset_id, src_path in pending:
             sub_dir = str(asset_id // 1000).zfill(4)
             thumb_path = os.path.join(THUMB_DIR, sub_dir, f'{asset_id}.jpg')
-            tasks.append((asset_id, src_path, thumb_path))
+            tasks.append((asset_id, _remap_src(src_path), thumb_path))
 
         ok = err = 0
         t0 = time.time()
