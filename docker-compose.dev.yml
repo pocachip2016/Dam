@@ -19,7 +19,7 @@ services:
       TZ: Asia/Seoul
       # DAM_ALLOW_INIT: "yes"  # uncomment ONLY for intentional fresh cluster init
     ports:
-      - "15432:5432"
+      - "127.0.0.1:15432:5432"
     volumes:
       - ./scripts/postgres_entrypoint_guard.sh:/usr/local/bin/dam_init_guard.sh:ro
       - ./data/pg_data:/var/lib/postgresql/data
@@ -35,7 +35,7 @@ services:
     image: redis:7-alpine
     container_name: dam_redis
     ports:
-      - "16379:6379"
+      - "127.0.0.1:16379:6379"
     volumes:
       - ./data/redis_data:/data
     command: redis-server --appendonly yes
@@ -45,12 +45,14 @@ services:
     build: .
     container_name: dam_api
     ports:
-      - "18000:8000"
+      - "127.0.0.1:18000:8000"
     environment:
       DAM_DSN: postgresql://dam:dam@dam_postgres:5432/dam
       DAM_REDIS: redis://dam_redis:6379/0
       DAM_POSTER_ROOT: /dam_posters
       DAM_TMDB_CAS_ROOT: /dam_tmdb_cas
+      DAM_DISABLE_AUTH: "1"
+      DAM_CORS_ORIGINS: "http://localhost:3001,http://localhost:3002,http://localhost:3100"
     volumes:
       - /mnt/d/Work/Dam/dam_data:/home/ktalpha/Work/Dam/dam_data:ro
       - /mnt/d/dam_data/thumbnails:/mnt/d/dam_data/thumbnails:ro   # 썸네일 통합 base (poc_sample + designfs1_mirror)

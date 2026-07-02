@@ -939,6 +939,20 @@ print('  ✓ ingest_poster routes:', routes)
     pass "step poster-ingest-P.1 Dam DB migration + ingest API"
     ;;
 
+  P0.1)
+    # CORS + /thumb public
+    health=$(curl -s http://localhost:18000/health)
+    [[ "$health" == *"ok"* ]] || fail "/health not responding"
+
+    cors_header=$(curl -s -i http://localhost:18000/thumb/1 -H "Origin: http://localhost:3100" 2>&1 | grep -i "access-control-allow-origin")
+    [[ -n "$cors_header" ]] || fail "CORS header missing"
+
+    thumb_status=$(curl -s -w '%{http_code}' http://localhost:18000/thumb/1 -o /dev/null)
+    [[ "$thumb_status" != "401" ]] || fail "/thumb still requires auth (401)"
+
+    pass "step P0.1 CORS + /thumb public"
+    ;;
+
   *)
     fail "unknown step '$STEP'"
     ;;

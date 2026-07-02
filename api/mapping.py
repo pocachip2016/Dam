@@ -88,10 +88,11 @@ def by_content(content_id: int, user: User = _admin):
         with conn.cursor() as cur:
             cur.execute("""
                 SELECT
-                  a.id AS asset_id, a.filename, a.folder_path,
+                  a.id AS asset_id, a.filename, s.physical_path AS folder_path,
                   acl.confidence, acl.method, acl.status
                 FROM asset_content_link acl
                 JOIN assets a ON a.id = acl.asset_id
+                JOIN asset_storage s ON s.asset_id = a.id
                 WHERE acl.content_id = %s
                 ORDER BY acl.confidence DESC
             """, (content_id,))
@@ -121,7 +122,12 @@ def by_class(
 
     with _conn() as conn:
         with conn.cursor() as cur:
-            base = "FROM asset_classifications ac JOIN assets a ON a.id=ac.asset_id WHERE ac.class=%s"
+            base = (
+                "FROM asset_classifications ac "
+                "JOIN assets a ON a.id=ac.asset_id "
+                "JOIN asset_storage s ON s.asset_id=a.id "
+                "WHERE ac.class=%s"
+            )
             params: list = [cls]
             if status:
                 base += " AND ac.status=%s"
@@ -131,7 +137,7 @@ def by_class(
             total = cur.fetchone()["cnt"]
 
             cur.execute(
-                f"""SELECT a.id AS asset_id, a.filename, a.folder_path,
+                f"""SELECT a.id AS asset_id, a.filename, s.physical_path AS folder_path,
                            ac.sub_class, ac.confidence, ac.method, ac.status
                     {base} ORDER BY ac.confidence DESC LIMIT %s OFFSET %s""",
                 params + [size, offset],
@@ -139,6 +145,35 @@ def by_class(
             rows = cur.fetchall()
 
     return {"class": cls, "total": total, "page": page, "size": size, "assets": [dict(r) for r in rows]}
+
+
+@router.get("/contents")
+def search_contents(
+    q: str | None = Query(None),
+    limit: int = Query(20, ge=1, le=200),
+    user: User = _admin,
+):
+    with _conn() as conn:
+        with conn.cursor() as cur:
+            if q:
+                cur.execute(
+                    """SELECT content_id, title, original_title, content_type, production_year
+                       FROM content_catalog_mirror
+                       WHERE title ILIKE %s OR original_title ILIKE %s
+                       ORDER BY title
+                       LIMIT %s""",
+                    (f"%{q}%", f"%{q}%", limit),
+                )
+            else:
+                cur.execute(
+                    """SELECT content_id, title, original_title, content_type, production_year
+                       FROM content_catalog_mirror
+                       ORDER BY title
+                       LIMIT %s""",
+                    (limit,),
+                )
+            rows = cur.fetchall()
+    return {"q": q, "limit": limit, "results": [dict(r) for r in rows]}
 
 
 @router.get("/asset/{asset_id}")

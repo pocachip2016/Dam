@@ -28,6 +28,7 @@ try:
     from fastapi import Depends, FastAPI, HTTPException, Query
     from fastapi.responses import FileResponse, RedirectResponse
     from fastapi.staticfiles import StaticFiles
+    from fastapi.middleware.cors import CORSMiddleware
 except ImportError:
     sys.exit('FastAPI 미설치. 실행: pip install fastapi')
 
@@ -55,6 +56,15 @@ app = FastAPI(title='Dam Search API', version='0.4.0')
 _static_dir = Path(__file__).parent / 'static'
 if _static_dir.exists():
     app.mount('/static', StaticFiles(directory=str(_static_dir)), name='static')
+
+cors_origins = os.getenv('DAM_CORS_ORIGINS', 'http://localhost:3001').split(',')
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=cors_origins,
+    allow_credentials=True,
+    allow_methods=['*'],
+    allow_headers=['*'],
+)
 
 app.include_router(auth_router)
 app.include_router(tags_router)
@@ -136,6 +146,10 @@ def get_conn():
     return psycopg.connect(DB_DSN, row_factory=dict_row)
 
 
+# Shared viewer dependency (module-level so tests can override it)
+_user_viewer = Depends(require_user('viewer'))
+
+
 # ---------------------------------------------------------------------------
 # GET /search  — 파일명/메타 검색
 # ---------------------------------------------------------------------------
@@ -145,9 +159,10 @@ def search(
     ext:    Optional[str] = Query(None,  description='확장자 필터, 예: .jpg'),
     realm:  str           = Query('poc_sample'),
     top:    Optional[str] = Query(None,  description='top_folder 필터'),
+    sub:    Optional[str] = Query(None,  description='sub_folder 필터'),
     limit:  int           = Query(50, ge=1, le=500),
     offset: int           = Query(0,  ge=0),
-    user:   User          = Depends(require_user('viewer')),
+    user:   User          = _user_viewer,
 ):
     filters = ['s.realm = %(realm)s']
     params: dict = {'realm': realm, 'limit': limit, 'offset': offset}
@@ -161,6 +176,9 @@ def search(
     if top:
         filters.append("s.top_folder = %(top)s")
         params['top'] = top
+    if sub:
+        filters.append("s.sub_folder = %(sub)s")
+        params['sub'] = sub
 
     where = ' AND '.join(filters)
     sql = f"""
@@ -415,7 +433,7 @@ def similar(
 # GET /thumb/<id>
 # ---------------------------------------------------------------------------
 @app.get('/thumb/{asset_id}')
-def thumb(asset_id: int, user: User = Depends(require_user('viewer'))):
+def thumb(asset_id: int):
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute("SELECT thumbnail_path FROM assets WHERE id = %s", (asset_id,))
@@ -427,6 +445,53 @@ def thumb(asset_id: int, user: User = Depends(require_user('viewer'))):
     if not os.path.isfile(path):
         raise HTTPException(404, f'썸네일 파일 없음: {path}')
     return FileResponse(path, media_type='image/jpeg')
+
+
+# ---------------------------------------------------------------------------
+# GET /folders  — folder tree (top_folder -> sub_folder)
+# ---------------------------------------------------------------------------
+_folders_user = Depends(require_user('viewer'))
+
+@app.get('/folders')
+def list_folders(
+    realm: str = Query('poc_sample'),
+    user:  User = _folders_user,
+):
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT s.top_folder, s.sub_folder, COUNT(*) AS count
+                FROM asset_storage s
+                JOIN assets a ON a.id = s.asset_id
+                WHERE s.realm = %(realm)s AND s.top_folder IS NOT NULL
+                GROUP BY s.top_folder, s.sub_folder
+                ORDER BY s.top_folder, s.sub_folder
+            """, {'realm': realm})
+            rows = cur.fetchall()
+
+    nodes_dict = {}
+    for row in rows:
+        top = row['top_folder']
+        sub = row['sub_folder']
+        count = row['count']
+
+        if top not in nodes_dict:
+            nodes_dict[top] = {'name': top, 'count': 0, 'children': {}}
+
+        if sub:
+            if sub not in nodes_dict[top]['children']:
+                nodes_dict[top]['children'][sub] = {'name': sub, 'count': 0}
+            nodes_dict[top]['children'][sub]['count'] += count
+            nodes_dict[top]['count'] += count
+        else:
+            nodes_dict[top]['count'] += count
+
+    nodes = []
+    for top_node in sorted(nodes_dict.values(), key=lambda x: x['name']):
+        top_node['children'] = list(sorted(top_node['children'].values(), key=lambda x: x['name']))
+        nodes.append(top_node)
+
+    return {'realm': realm, 'nodes': nodes}
 
 
 # ---------------------------------------------------------------------------

@@ -2,6 +2,7 @@
 
 > `TODO.md`의 `## Done`은 최근 5개만 유지. 초과분은 여기로 이관.
 
+- [x] Step 3.5 tags-collections — 태그 CRUD + orphan 정리 + collection sort_order (2026-05-06)
 - [x] Step 3.4 search-filters — ext/folder/role/year/size/mtime/tag 필터 (2026-05-06)
 - [x] Step 3.3 hash-dedup — sha256 100%, 8,652 dup edges, 4.0 GB 절약 (2026-05-06)
 - [x] Step 3.2 metadata-and-tokens — path/exif/year/role fill 완료 (2026-05-06)

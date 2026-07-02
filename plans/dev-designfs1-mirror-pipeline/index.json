@@ -58,9 +58,14 @@
       "status": "completed",
       "summary": "feature/designfs1-mirror-pipeline → main --no-ff 머지 + push 완료(b9e788f). Step6에서 규명된 신규 이미지 5건 asset_id 490307~490311 수동 등록 후 metadata/thumbnail/clip(open+cn) 파이프라인 전량 완료. designfs1_mirror 누적 167,665건",
       "completed_at": "2026-07-02T21:52:00+09:00"
+    },
+    {
+      "step": "9",
+      "name": "ocr-pipeline",
+      "status": "completed",
+      "summary": "EasyOCR GPU로 designfs1_mirror 166,704건 전량 처리, errors=0 (ko 68,535 / en 5,203 / mixed 1,553 / none 91,413). Docker Desktop 엔진 반복 재시작 이슈로 자동 재시도 wrapper 사용, 이후 1회 시도로 완주",
+      "completed_at": "2026-07-03T01:33:44+09:00"
     }
   ],
-  "followups": [
-    "OCR(EasyOCR) 167k건은 이번 배치 범위에서 제외 — 별도 계획 필요"
-  ]
+  "followups": []
 }
