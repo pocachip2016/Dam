@@ -161,11 +161,11 @@ def ingest_tmdb_image(req: TmdbImageIngestRequest, user: User = _admin):
                 filename = dest.name
                 cur.execute(
                     """
-                    INSERT INTO assets (filename, sha256, size_bytes, asset_type)
-                    VALUES (%s, %s, %s, 'source')
+                    INSERT INTO assets (filename, sha256, size_bytes, asset_type, primary_ext)
+                    VALUES (%s, %s, %s, 'source', %s)
                     RETURNING id
                     """,
-                    (filename, sha256, len(data)),
+                    (filename, sha256, len(data), dest.suffix),
                 )
                 asset_id = cur.fetchone()["id"]
 
