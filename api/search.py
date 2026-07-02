@@ -146,6 +146,10 @@ def get_conn():
     return psycopg.connect(DB_DSN, row_factory=dict_row)
 
 
+# Shared viewer dependency (module-level so tests can override it)
+_user_viewer = Depends(require_user('viewer'))
+
+
 # ---------------------------------------------------------------------------
 # GET /search  — 파일명/메타 검색
 # ---------------------------------------------------------------------------
@@ -158,7 +162,7 @@ def search(
     sub:    Optional[str] = Query(None,  description='sub_folder 필터'),
     limit:  int           = Query(50, ge=1, le=500),
     offset: int           = Query(0,  ge=0),
-    user:   User          = Depends(require_user('viewer')),
+    user:   User          = _user_viewer,
 ):
     filters = ['s.realm = %(realm)s']
     params: dict = {'realm': realm, 'limit': limit, 'offset': offset}

@@ -93,28 +93,34 @@ class TestSearchWithSubFolder:
         cur.__enter__  = MagicMock(return_value=cur)
         cur.__exit__   = MagicMock(return_value=False)
 
-        asset_row = MagicMock()
-        asset_row.__getitem__ = lambda self, k: {
+        # dict_row rows are plain dicts; result rows are returned as-is (JSON-serializable)
+        asset_row = {
             'id': 1,
             'filename': 'test.jpg',
             'primary_ext': '.jpg',
             'size_bytes': 1024,
+            'mtime': None,
             'width': 1920,
             'height': 1080,
+            'thumbnail_path': None,
             'top_folder': '디자인파트',
             'sub_folder': '포스터',
             'physical_path': '/mnt/d/poc/디자인파트/포스터/test.jpg',
             'realm': 'poc_sample'
-        }[k]
+        }
 
+        executed_sql = []
+        cur.execute.side_effect = lambda sql, params=None: executed_sql.append(sql)
         cur.fetchall.return_value = [asset_row]
-        cur.fetchone.return_value = (1,)  # count
+        cur.fetchone.return_value = {'cnt': 1}  # count query result (dict_row)
         conn.cursor.return_value = cur
 
         app.dependency_overrides[search_mod._user_viewer.dependency] = _override_viewer
         with patch("api.search.get_conn", return_value=conn):
             r = client.get("/search?realm=poc_sample&top=디자인파트&sub=포스터")
-            assert r.status_code == 200
+            assert r.status_code == 200, r.text
             data = r.json()
             assert 'results' in data
-            # Query should have passed both filters
+            # Query should have passed both top and sub filters
+            assert any('s.sub_folder' in sql for sql in executed_sql), executed_sql
+            assert any('s.top_folder' in sql for sql in executed_sql), executed_sql
