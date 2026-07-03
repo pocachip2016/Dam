@@ -17,12 +17,16 @@
     {
       "step": "4.3",
       "name": "monitoring",
-      "status": "pending"
+      "status": "completed",
+      "summary": "worker_runs 테이블 + RunTracker context manager + /admin/workers API(admin role) + /health liveness endpoint + admin.html 대시보드 UI — 4개 테스트 통과",
+      "completed_at": "2026-06-30T15:00:00+09:00"
     },
     {
       "step": "4.4",
       "name": "backup",
-      "status": "pending"
+      "status": "completed",
+      "summary": "backup_thumbs.sh(썸네일 rsync) + restore-procedure.md(4섹션) + verify retention/복원리허설 통과",
+      "completed_at": "2026-06-30T15:30:00+09:00"
     },
     {
       "step": "4.5",

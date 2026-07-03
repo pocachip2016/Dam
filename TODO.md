@@ -4,6 +4,7 @@
 
 ## Now (진행 중, 1~3개)
 - [ ] **4.2.4** ui-login — login.html + app.js + index.html 전환
+- [ ] **4.5** deployment — docker-compose.prod.yml, systemd units, deployment.md
 
 ## Next (이번 마일스톤 — Phase 4 ops-readiness)
 - [x] **3.1** archive-and-branch — `feature/mvp-features` 생성 (2026-05-06)
@@ -21,8 +22,8 @@
   - [x] 4.2.2 auth-module-and-cli (2026-05-28) — argon2, token, require_user, create_user.py
   - [x] 4.2.3 wire-endpoints (2026-05-28) — all endpoints viewer/editor/admin gates, X-User removed
   - [ ] 4.2.4 ui-login — login.html form + app.js helper + index.html redirect
-  - [ ] 4.3 monitoring — worker_runs table, /admin/workers API + dashboard
-  - [ ] 4.4 backup — backup_db.sh/backup_thumbs.sh, restore-procedure.md
+  - [x] 4.3 monitoring — worker_runs table, /admin/workers API + dashboard (2026-06-30, feature/ops-monitoring-backup cherry-pick)
+  - [x] 4.4 backup — backup_db.sh/backup_thumbs.sh, restore-procedure.md (2026-06-30, feature/ops-monitoring-backup cherry-pick)
   - [ ] 4.5 deployment — docker-compose.prod.yml complete, systemd units, deployment.md
   - [ ] 4.6 wrap — PRD/TODO/CLAUDE.md update, operations.md, main merge
 - [x] dev-asset-content-mapping M.0 — 006_content_mapping.sql 신설 (2026-05-09)
@@ -36,6 +37,8 @@
 ## Done (최근 5개만)
 - [x] Phase 5 첫 배치 wrap — designfs1_mirror metadata/thumbnail/clip/OCR 전체 완료(166,704건, errors=0) + 신규 이미지 5건 ingest (2026-07-03)
 - [x] Phase 5 첫 배치 — 썸네일 base `D:\dam_data\thumbnails` 통합 (2026-07-02)
+- [x] Step 4.4 backup — backup_thumbs.sh + restore-procedure.md (2026-06-30)
+- [x] Step 4.3 monitoring — worker_runs + RunTracker + /admin/workers + /health + admin.html (2026-06-30)
 - [x] Step 4.G db-init-guard — entrypoint guard + smoke-test A/B/C + db-recovery.md (2026-05-08)
 - [x] Step 3.7 wrap — Phase 3 docs 갱신, feature/mvp-features → main 머지 (2026-05-08)
 - [x] Step 3.6 ocr-pipeline — EasyOCR GPU, ocr_tsv GIN, 160k 배치, /search_text ocr_only (2026-05-06)

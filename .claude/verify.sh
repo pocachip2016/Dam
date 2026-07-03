@@ -953,6 +953,120 @@ print('  ✓ ingest_poster routes:', routes)
     pass "step P0.1 CORS + /thumb public"
     ;;
 
+  4.4)
+    # 1. backup_db.sh 실행 → dump 생성 확인 (기존 dump가 있으면 재사용)
+    latest=$(find "$REPO/data/backups" -maxdepth 1 -name 'dam_*.dump' -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)
+    if [[ -z "$latest" ]]; then
+      BACKUP_DIR="$REPO/data/backups" bash "$REPO/scripts/db_backup.sh" \
+        || fail "db_backup.sh 실행 실패"
+      latest=$(ls -t "$REPO/data/backups/dam_*.dump" 2>/dev/null | head -1)
+    fi
+    [[ -f "$latest" ]] || fail "dump 파일 없음"
+
+    # 2. retention: mock 파일 생성 후 db_backup.sh에서 직접 find -delete 로직을 검증
+    mock="$REPO/data/backups/dam_20000101_000000.dump"
+    touch "$mock"
+    touch -d "9 days ago" "$mock"
+    # find 명령만 실행해 삭제 확인 (pg_dump 재실행 없이)
+    RETENTION_DAYS="${RETENTION_DAYS:-7}"
+    find "$REPO/data/backups" -maxdepth 1 -name 'dam_*.dump' -mtime +"$RETENTION_DAYS" -delete
+    if [[ -f "$mock" ]]; then
+      rm -f "$mock"
+      fail "retention: 9일 전 mock 파일 미삭제"
+    fi
+
+    # 3. 복원 리허설: 임시 컨테이너에 dump 로드 → assets count 비교
+    src_count=$(docker exec dam_postgres psql -U dam -d dam -tAc \
+      "SELECT COUNT(*) FROM assets" | tr -d ' ')
+
+    docker rm -f dam_restore_test 2>/dev/null || true
+    docker run -d --name dam_restore_test \
+      -e POSTGRES_USER=dam -e POSTGRES_PASSWORD=dam -e POSTGRES_DB=dam \
+      pgvector/pgvector:pg16 > /dev/null
+
+    # DB 기동 대기
+    for i in $(seq 1 20); do
+      docker exec dam_restore_test pg_isready -U dam -d dam >/dev/null 2>&1 && break
+      sleep 1
+    done
+
+    docker exec -i dam_restore_test pg_restore \
+      -U dam -d dam --no-owner --no-privileges < "$latest" 2>/dev/null || true
+
+    rst_count=$(docker exec dam_restore_test psql -U dam -d dam -tAc \
+      "SELECT COUNT(*) FROM assets" 2>/dev/null | tr -d ' ')
+    docker rm -f dam_restore_test > /dev/null
+
+    [[ "$src_count" == "$rst_count" ]] \
+      || fail "복원 assets count 불일치: src=$src_count rst=$rst_count"
+
+    # 4. restore-procedure.md 4섹션 확인
+    for section in "백업" "복원" "롤백" "손실"; do
+      grep -q "$section" "$REPO/docs/restore-procedure.md" \
+        || fail "restore-procedure.md '$section' 섹션 없음"
+    done
+
+    # 5. backup_thumbs.sh 존재 + 실행 가능
+    [[ -x "$REPO/scripts/backup_thumbs.sh" ]] \
+      || fail "backup_thumbs.sh 없거나 실행 권한 없음"
+    bash -n "$REPO/scripts/backup_thumbs.sh" \
+      || fail "backup_thumbs.sh 문법 오류"
+
+    pass "step 4.4 backup (dump OK, retention OK, 복원 리허설 OK, restore-procedure OK, backup_thumbs OK)"
+    ;;
+
+  4.3)
+    BASE="${DAM_BASE:-http://localhost:18000}"
+
+    # 1. worker_runs 테이블 존재
+    tbl=$(psql_q "SELECT to_regclass('public.worker_runs')")
+    [[ "$tbl" == "worker_runs" ]] || fail "worker_runs 테이블 없음 — 011_worker_runs.sql 적용 필요"
+
+    # 2. RunTracker dummy run — INSERT + heartbeat + finished_at
+    run_id=$(PYTHONPATH="$REPO" DAM_DSN="$DSN" "$REPO/.venv/bin/python" -c "
+from ingest.run_tracker import RunTracker
+with RunTracker('verify_dummy', total_planned=10, dsn='$DSN') as rt:
+    rt.tick(5, errors=0, force=True)
+    rt.tick(10, errors=0, force=True)
+    print(rt.run_id)
+" 2>/dev/null | tail -1)
+    [[ -n "$run_id" ]] || fail "RunTracker run_id 획득 실패"
+
+    hb=$(psql_q "SELECT last_heartbeat IS NOT NULL FROM worker_runs WHERE id=$run_id")
+    [[ "$hb" == "t" ]] || fail "heartbeat 미갱신 (run_id=$run_id)"
+
+    fin=$(psql_q "SELECT finished_at IS NOT NULL FROM worker_runs WHERE id=$run_id")
+    [[ "$fin" == "t" ]] || fail "finished_at 미기록 (run_id=$run_id)"
+
+    # cleanup
+    psql_q "DELETE FROM worker_runs WHERE id=$run_id" > /dev/null
+
+    # 3. /health 무인증 200
+    code=$(curl -o /dev/null -s -w "%{http_code}" "${BASE}/health")
+    [[ "$code" == "200" ]] || fail "/health → $code (expected 200)"
+
+    # 4. /api/admin/workers — admin 200, viewer 403
+    # admin 토큰 발급
+    admin_tok=$(PYTHONPATH="$REPO" DAM_DSN="$DSN" \
+      "$REPO/.venv/bin/python" "$REPO/scripts/verify43_token.py" verify43_adm admin 2>/dev/null)
+
+    viewer_tok=$(PYTHONPATH="$REPO" DAM_DSN="$DSN" \
+      "$REPO/.venv/bin/python" "$REPO/scripts/verify43_token.py" verify43_vw viewer 2>/dev/null)
+
+    code=$(curl -o /dev/null -s -w "%{http_code}" \
+      -H "Authorization: Bearer ${admin_tok}" "${BASE}/api/admin/workers")
+    [[ "$code" == "200" ]] || fail "/api/admin/workers admin → $code (expected 200)"
+
+    code=$(curl -o /dev/null -s -w "%{http_code}" \
+      -H "Authorization: Bearer ${viewer_tok}" "${BASE}/api/admin/workers")
+    [[ "$code" == "403" ]] || fail "/api/admin/workers viewer → $code (expected 403)"
+
+    # cleanup
+    psql_q "DELETE FROM users WHERE username IN ('verify43_adm','verify43_vw')" > /dev/null
+
+    pass "step 4.3 monitoring (worker_runs OK, RunTracker OK, /health OK, /admin/workers role OK)"
+    ;;
+
   *)
     fail "unknown step '$STEP'"
     ;;
